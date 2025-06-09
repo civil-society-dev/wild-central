@@ -1,0 +1,64 @@
+wildcloud:
+  # You can also use a local path for the repository such as /home/adam/repos/wild-cloud
+  repository: /data/repos/wild-cloud
+operator:
+  email: paul@payne.io
+cloud:
+  domain: cloud.payne.io
+  internalDomain: internal.cloud.payne.io
+  dockerRegistryHost: docker-registry.internal.cloud.payne.io
+  tz: America/Los_Angeles
+  router:
+    dynamicDns: fzaf1fa.glddns.com
+    ip: 192.168.8.1
+  nfs:
+    host: box-01
+    mediaPath: /data/media
+    storageCapacity: 250Gi
+  dns:
+    ip: 192.168.8.50
+    externalResolver: 1.1.1.1
+  dhcpRange: 192.168.8.100,192.168.8.239
+  dnsmasq:
+    interface: enp5s0
+    username: payne
+cluster:
+  endpoint: civil
+  endpointIp: 192.168.8.241
+  kubernetes:
+    config: /home/payne/.kube/config
+    context: default
+  loadBalancerRange: 192.168.8.240-192.168.8.250
+  dashboard:
+    adminUsername: admin
+  certManager:
+    namespace: cert-manager
+    cloudflare:
+      domain: payne.io
+      ownerId: cloud-payne-io-cluster
+  nodes:
+    talos:
+      version: v1.10.3
+apps:
+  postgres:
+    database: postgres
+    user: postgres
+    storage: 10Gi
+    image: pgvector/pgvector:pg15
+    timezone: America/Los_Angeles
+  redis:
+    image: redis:alpine
+    timezone: UTC
+    port: 6379
+  immich:
+    serverImage: ghcr.io/immich-app/immich-server:release
+    mlImage: ghcr.io/immich-app/immich-machine-learning:release
+    timezone: America/Los_Angeles
+    serverPort: 2283
+    mlPort: 3003
+    storage: 250Gi
+    cacheStorage: 10Gi
+    redisHostname: redis.redis.svc.cluster.local
+    dbHostname: postgres.postgres.svc.cluster.local
+    dbUsername: immich
+    domain: immich.cloud.payne.io

@@ -3,7 +3,7 @@ VERSION?=0.1.0
 BUILD_DIR=build
 DEB_DIR=debian-package
 
-.PHONY: build clean test run install deb
+.PHONY: build clean test run install deb repo deploy-repo
 
 build:
 	mkdir -p $(BUILD_DIR)
@@ -74,6 +74,12 @@ deb: build
 	chmod 755 $(DEB_DIR)/DEBIAN/postinst
 	
 	dpkg-deb --build $(DEB_DIR) $(BUILD_DIR)/wild-cloud-central_$(VERSION)_amd64.deb
+
+repo: deb
+	./scripts/build-repo.sh
+
+deploy-repo: repo
+	./scripts/deploy-repo.sh
 
 dev:
 	go run . &

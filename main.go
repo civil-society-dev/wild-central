@@ -272,26 +272,20 @@ func (app *App) downloadTalosAssets() error {
 		return fmt.Errorf("creating assets directory: %w", err)
 	}
 
-	// Create Talos bare metal configuration
-	bareMetalConfig := `machine:
-  type: controlplane
-  install:
-    disk: /dev/sda
-    bootloader: true
-    wipe: false
-  features:
-    rbac: true
-
-cluster:
-  name: wild-cluster
-  controlPlane:
-    endpoint: https://` + app.config.Cluster.EndpointIP + `:6443`
+	// Create Talos bare metal configuration (schematic format)
+	bareMetalConfig := `customization:
+  extraKernelArgs:
+    - net.ifnames=0
+  systemExtensions:
+    officialExtensions:
+      - siderolabs/gvisor
+      - siderolabs/intel-ucode`
 
 	// Create Talos schematic
 	var buf bytes.Buffer
 	buf.WriteString(bareMetalConfig)
 	
-	resp, err := http.Post("https://factory.talos.dev/schematics", "application/yaml", &buf)
+	resp, err := http.Post("https://factory.talos.dev/schematics", "text/yaml", &buf)
 	if err != nil {
 		return fmt.Errorf("creating Talos schematic: %w", err)
 	}

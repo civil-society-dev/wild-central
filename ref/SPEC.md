@@ -26,3 +26,27 @@ When run:
 In creating this, we note the system is overly complex and mixes up responsibilities between components and makes setting up difficult.
 
 We want to re-implement the current functionality as a web service with a JSON API that will be installed with `sudo apt install wild-cloud-central`.
+
+#### Implementation Details
+
+The new wild-cloud-central service will be:
+
+- **Written in Go** - for better performance, easier deployment, and cross-compilation capabilities
+- **Debian-based systems only** - targeting Ubuntu/Debian distributions with apt package management
+- **Single binary deployment** - packaged as a .deb file for simple installation and management
+- **Web service with JSON API** - replacing bash scripts with HTTP endpoints for configuration and management
+- **Systemd integration** - proper service management with start/stop/restart capabilities
+- **Configuration management** - centralized config handling replacing scattered YAML template processing
+
+#### Service Architecture
+
+The Go-based service will provide:
+
+- REST API endpoints for cluster configuration and management
+- Built-in web UI for operator interaction
+- Integrated dnsmasq configuration management
+- Automatic PXE asset downloading and caching
+- Real-time status monitoring and logging
+- Simplified installation process removing multi-phase setup complexity
+
+This approach will eliminate the current split between local preparation and remote setup phases, providing a unified management interface for wild-cloud infrastructure.

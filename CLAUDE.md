@@ -31,7 +31,22 @@ The project consists of two main phases:
 
 ## Development Commands
 
-This is a bash script-based project with no build system. Key operations:
+### Go-based Implementation Commands
+
+- Build application: `make build`
+- Build .deb package: `make deb`
+- Run locally: `make run` or `go run .`
+- Test installation: `./test-docker.sh`
+- Clean build artifacts: `make clean`
+
+### Testing the Installation
+
+Use Docker to test the complete installation process:
+- `./test-docker.sh` - Full installation simulation
+- `docker build -t wild-cloud-central-test .` - Build test environment
+- `docker run --rm -p 8081:8081 -p 8080:80 wild-cloud-central-test` - Run tests
+
+### Legacy Bash Scripts (ref/ directory)
 
 - Run local setup: `./ref/install-dnsmasq` (requires `.wildcloud/config.yaml`)
 - Run remote setup: `./ref/dnsmasq/setup.sh` (run on target server)

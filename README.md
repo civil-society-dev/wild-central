@@ -12,17 +12,6 @@ A Go-based web service for managing wild-cloud infrastructure, providing DNS, DH
 
 ## Quick Start
 
-### Using Docker (Recommended for Testing)
-
-1. **Build and run with Docker Compose:**
-   ```bash
-   docker-compose up --build
-   ```
-
-2. **Access the web interface:**
-   - Management UI: http://localhost:8080
-   - API directly: http://localhost:8081
-
 ### Building Locally
 
 1. **Build the application:**
@@ -76,26 +65,50 @@ cluster:
 
 ## Testing
 
-The Docker container includes:
-- dnsmasq for DNS/DHCP services
-- nginx for serving PXE assets and web interface
-- wild-cloud-central management service
+> ⚠️ **Note**: These Docker scripts test the installation process only. In production, use `sudo apt install wild-cloud-central` and manage via systemd.
 
-### Container Testing Commands
+Choose the testing approach that fits your needs:
 
+### 1. Automated Verification - `./test-docker.sh`
+- **When to use**: Verify the installation works correctly
+- **What it does**: Builds .deb package, installs it, tests all endpoints automatically
+- **Best for**: CI/CD, quick verification that everything works
+
+### 2. Background Testing - `./start-background.sh` / `./stop-background.sh`  
+- **When to use**: You want to test APIs while doing other work
+- **What it does**: Starts services silently in background, gives you your terminal back
+- **Example workflow**: Start services, test in another terminal, stop when done
 ```bash
-# Build and start services
-docker-compose up --build
-
-# Check service health
-curl http://localhost:8081/api/v1/health
-
-# Download PXE assets
-curl -X POST http://localhost:8081/api/v1/pxe/assets
-
-# Generate dnsmasq config
-curl http://localhost:8081/api/v1/dnsmasq/config
+./start-background.sh           # Services start, terminal returns immediately
+curl http://localhost:9081/api/v1/health  # Test in same or different terminal
+# Continue working while services run...
+./stop-background.sh            # Clean shutdown when finished
 ```
+
+### 3. Interactive Development - `./start-interactive.sh`
+- **When to use**: You want to see what's happening as you test
+- **What it does**: Starts services with live logs, takes over your terminal
+- **Example workflow**: Start services, watch logs in real-time, Ctrl+C to stop
+```bash
+./start-interactive.sh          # Services start, shows live logs
+# You see all HTTP requests, errors, debug info in real-time
+# Press Ctrl+C when done - terminal is "busy" until then
+```
+
+### 4. Shell Access - `./debug-container.sh`
+- **When to use**: Deep debugging, manual service control, file inspection
+- **What it does**: Drops you into the container shell
+- **Best for**: Investigating issues, manually starting/stopping services
+
+### Test Access Points
+All services bind to localhost (127.0.0.1) on non-standard ports, so they won't interfere with your local services:
+
+- Management UI: http://localhost:9080
+- API: http://localhost:9081
+- DNS: localhost:9053 (UDP) - test with `dig @localhost -p 9053 wildcloud.local`
+- DHCP: localhost:9067 (UDP)
+- TFTP: localhost:9069 (UDP)
+- Container logs: `docker logs wild-central-bg`
 
 ## Production Installation
 

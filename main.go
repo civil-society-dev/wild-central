@@ -70,11 +70,15 @@ func (app *App) loadConfig() error {
 	configPath := "/etc/wild-cloud-central/config.yaml"
 	if _, err := os.Stat(configPath); os.IsNotExist(err) {
 		configPath = "./config.yaml"
+		if _, err := os.Stat(configPath); os.IsNotExist(err) {
+			configPath = "/build/config.yaml"
+		}
 	}
 
+	log.Printf("Loading config from: %s", configPath)
 	data, err := os.ReadFile(configPath)
 	if err != nil {
-		return fmt.Errorf("reading config file: %w", err)
+		return fmt.Errorf("reading config file %s: %w", configPath, err)
 	}
 
 	app.config = &Config{}

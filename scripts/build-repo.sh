@@ -3,74 +3,81 @@
 set -e
 
 # Configuration
-REPO_DIR="apt-repo"
+REPO_NAME="wild-cloud-central"
 DIST="stable"
 COMPONENT="main"
-ARCH="amd64"
-PACKAGE_NAME="wild-cloud-central"
+REPO_DIR="dist/repositories/apt"
+PACKAGE_DIR="dist/packages"
 
-echo "🏗️  Building APT repository..."
+echo "🏗️  Building APT repository with aptly..."
 
-# Create directory structure
-mkdir -p "$REPO_DIR/pool/main/w/$PACKAGE_NAME"
-mkdir -p "$REPO_DIR/dists/$DIST/$COMPONENT/binary-$ARCH"
+# Initialize aptly database if needed (aptly auto-creates on first use)
+echo "📦 Ensuring aptly is ready..."
 
-# Copy .deb file to pool
-cp build/wild-cloud-central_*.deb "$REPO_DIR/pool/main/w/$PACKAGE_NAME/"
-
-# Generate Packages file
-cd "$REPO_DIR"
-dpkg-scanpackages pool/ /dev/null > "dists/$DIST/$COMPONENT/binary-$ARCH/Packages"
-gzip -k -f "dists/$DIST/$COMPONENT/binary-$ARCH/Packages"
-
-# Generate Release files
-cd "dists/$DIST"
-
-# Component Release file
-cat > "$COMPONENT/binary-$ARCH/Release" << EOF
-Archive: $DIST
-Component: $COMPONENT
-Origin: Wild Cloud Central
-Label: Wild Cloud Central
-Architecture: $ARCH
-EOF
-
-# Main Release file
-cat > Release << EOF
-Archive: $DIST
-Codename: $DIST
-Date: $(date -Ru)
-Origin: Wild Cloud Central
-Label: Wild Cloud Central Repository
-Suite: $DIST
-Architectures: $ARCH
-Components: $COMPONENT
-Description: Wild Cloud Central APT Repository
-MD5Sum:
-$(find . -name "Packages*" -exec md5sum {} \; | sed 's|\./||')
-SHA1:
-$(find . -name "Packages*" -exec sha1sum {} \; | sed 's|\./||')
-SHA256:
-$(find . -name "Packages*" -exec sha256sum {} \; | sed 's|\./||')
-EOF
-
-# Sign the Release file (requires GPG key)
-if command -v gpg &> /dev/null; then
-    gpg --armor --detach-sign --sign Release
-    echo "✅ Repository signed with GPG"
-else
-    echo "⚠️  GPG not found - repository will not be signed"
+# Check if repository is already published and drop it first
+if aptly publish list 2>/dev/null | grep -q "filesystem:dist/repositories/apt:./stable"; then
+    echo "🗑️  Dropping existing published repository..."
+    aptly publish drop -force-drop stable filesystem:dist/repositories/apt: || echo "⚠️  Could not drop existing published repository"
 fi
 
-cd ../../..
+# Check if repository already exists and drop it to start fresh
+if aptly repo list 2>/dev/null | grep -q "\[$REPO_NAME\]"; then
+    echo "🗑️  Removing existing repository '$REPO_NAME'..."
+    aptly repo drop -force "$REPO_NAME" || echo "⚠️  Could not drop existing repository"
+fi
 
-echo "✅ APT repository built in $REPO_DIR/"
+# Create local repository
+echo "📦 Creating local repository '$REPO_NAME'..."
+aptly repo create -distribution="$DIST" -component="$COMPONENT" "$REPO_NAME"
+
+# Add packages to repository
+if [ -d "$PACKAGE_DIR" ] && [ "$(ls -A $PACKAGE_DIR/*.deb 2>/dev/null)" ]; then
+    echo "📦 Adding packages to repository..."
+    aptly repo add "$REPO_NAME" "$PACKAGE_DIR"/*.deb
+else
+    echo "⚠️  No .deb files found in $PACKAGE_DIR directory"
+    exit 1
+fi
+
+# Create output directory
+mkdir -p "$REPO_DIR"
+
+# Get GPG signing key
+SIGNING_KEY=$(gpg --list-secret-keys --with-colons | grep '^sec' | head -1 | cut -d: -f5)
+if [ -z "$SIGNING_KEY" ]; then
+    echo "❌ No GPG signing key found"
+    exit 1
+fi
+
+echo "🔐 Using GPG key: $SIGNING_KEY"
+
+# Publish repository with GPG signing
+echo "🚀 Publishing repository..."
+aptly publish repo -distribution="$DIST" -component="$COMPONENT" -architectures="amd64,arm64" -gpg-key="$SIGNING_KEY" "$REPO_NAME" "filesystem:$REPO_DIR:"
+
+# Export GPG public key for users
+echo "🔑 Exporting GPG public key..."
+gpg --export "$SIGNING_KEY" > "$REPO_DIR/wild-cloud-central.gpg"
+
+echo "✅ APT repository built successfully!"
 echo ""
-echo "📦 To deploy:"
-echo "   rsync -av $REPO_DIR/ user@mywildcloud.org:/var/www/html/apt/"
+echo "📦 Repository location: $REPO_DIR/"
+echo "🔑 GPG key location: $REPO_DIR/wild-cloud-central.gpg"
 echo ""
-echo "👥 Users can install with:"
-echo "   curl -fsSL https://mywildcloud.org/apt/wild-cloud-central.gpg | sudo apt-key add -"
-echo "   echo 'deb https://mywildcloud.org/apt stable main' | sudo tee /etc/apt/sources.list.d/wild-cloud-central.list"
+echo "📋 Users can install with:"
+echo ""
+echo "   # Download and install GPG key"
+echo "   curl -fsSL https://mywildcloud.org/apt/wild-cloud-central.gpg | sudo tee /usr/share/keyrings/wild-cloud-central-archive-keyring.gpg > /dev/null"
+echo ""
+echo "   # Add repository"
+echo "   sudo tee /etc/apt/sources.list.d/wild-cloud-central.sources << 'EOF'"
+echo "   Types: deb"
+echo "   URIs: https://mywildcloud.org/apt"
+echo "   Suites: $DIST"
+echo "   Components: $COMPONENT"
+echo "   Signed-By: /usr/share/keyrings/wild-cloud-central-archive-keyring.gpg"
+echo "   EOF"
+echo ""
+echo "   # Update and install"
 echo "   sudo apt update"
 echo "   sudo apt install wild-cloud-central"

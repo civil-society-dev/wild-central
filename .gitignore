@@ -1,7 +1,6 @@
 # Build artifacts
 build/
-debian-package/
-apt-repo/
+dist/
 
 # Go build cache
 *.o

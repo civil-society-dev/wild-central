@@ -36,17 +36,19 @@ EOF
     echo "✅ New GPG key created with ID: $KEY_ID"
 fi
 
-# Export public key
-echo "📤 Exporting public key..."
-gpg --armor --export $KEY_ID > wild-cloud-central.gpg
+# Export public key in binary format (consistent with build-repo.sh)
+echo "📤 Exporting public key in binary format for APT..."
+mkdir -p dist
+gpg --export $KEY_ID > dist/wild-cloud-central.gpg
 
 echo ""
 echo "✅ GPG setup complete!"
 echo ""
 echo "📋 Next steps:"
-echo "   1. Upload wild-cloud-central.gpg to https://mywildcloud.org/apt/"
-echo "   2. Users will add this key with:"
-echo "      curl -fsSL https://mywildcloud.org/apt/wild-cloud-central.gpg | sudo apt-key add -"
+echo "   1. Build repository with: make repo"
+echo "   2. Deploy with: make deploy-repo"
+echo "   3. Users will add this key with:"
+echo "      curl -fsSL https://mywildcloud.org/apt/wild-cloud-central.gpg | sudo tee /usr/share/keyrings/wild-cloud-central.gpg > /dev/null"
 echo ""
 echo "🔐 Key ID: $KEY_ID"
-echo "📄 Public key saved to: wild-cloud-central.gpg"
+echo "📄 Public key saved to: dist/wild-cloud-central.gpg (binary format for APT)"

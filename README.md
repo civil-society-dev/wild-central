@@ -7,11 +7,19 @@ A web service for managing wild-cloud infrastructure, providing DNS, DHCP, and P
 ### APT Repository (Recommended)
 
 ```bash
-# Add the Wild Cloud Central repository
-curl -fsSL https://mywildcloud.org/apt/wild-cloud-central.gpg | sudo apt-key add -
-echo 'deb https://mywildcloud.org/apt stable main' | sudo tee /etc/apt/sources.list.d/wild-cloud-central.list
+# Download and install GPG key
+curl -fsSL https://mywildcloud.org/apt/wild-cloud-central.gpg | sudo tee /usr/share/keyrings/wild-cloud-central-archive-keyring.gpg > /dev/null
 
-# Install
+# Add repository (modern .sources format)
+sudo tee /etc/apt/sources.list.d/wild-cloud-central.sources << 'EOF'
+Types: deb
+URIs: https://mywildcloud.org/apt
+Suites: stable
+Components: main
+Signed-By: /usr/share/keyrings/wild-cloud-central-archive-keyring.gpg
+EOF
+
+# Update and install
 sudo apt update
 sudo apt install wild-cloud-central
 ```
@@ -28,12 +36,14 @@ sudo apt-get install -f  # Fix any dependency issues
 ## Quick Start
 
 1. **Configure the service** (optional):
+
    ```bash
    sudo cp /etc/wild-cloud-central/config.yaml.example /etc/wild-cloud-central/config.yaml
    sudo nano /etc/wild-cloud-central/config.yaml
    ```
 
 2. **Start the service**:
+
    ```bash
    sudo systemctl enable wild-cloud-central
    sudo systemctl start wild-cloud-central
@@ -45,7 +55,7 @@ sudo apt-get install -f  # Fix any dependency issues
 ## Features
 
 - **Web Management Interface** - Browser-based configuration and monitoring
-- **REST API** - JSON API for programmatic management  
+- **REST API** - JSON API for programmatic management
 - **DNS/DHCP Services** - Integrated dnsmasq configuration management
 - **PXE Boot Support** - Automatic Talos Linux asset downloading and serving
 
@@ -57,14 +67,14 @@ The service uses `/etc/wild-cloud-central/config.yaml` for configuration:
 cloud:
   domain: "wildcloud.local"
   dns:
-    ip: "192.168.8.50"        # Your server's IP
+    ip: "192.168.8.50" # Your server's IP
   dhcpRange: "192.168.8.100,192.168.8.200"
 
 cluster:
-  endpointIp: "192.168.8.60"  # Talos cluster endpoint
+  endpointIp: "192.168.8.60" # Talos cluster endpoint
   nodes:
     talos:
-      version: "v1.8.0"       # Talos version to use
+      version: "v1.8.0" # Talos version to use
 ```
 
 ## Service Management

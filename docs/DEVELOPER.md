@@ -47,7 +47,7 @@ Edit `config.yaml` to customize your deployment:
 
 ```yaml
 server:
-  port: 8081
+  port: 5055
   host: "0.0.0.0"
 
 cloud:

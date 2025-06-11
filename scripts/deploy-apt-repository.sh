@@ -11,16 +11,13 @@ echo "🚀 Deploying APT repository to mywildcloud.org..."
 
 # Check if repository exists
 if [ ! -d "$LOCAL_REPO" ]; then
-    echo "❌ Repository not found. Run './scripts/build-repo.sh' first."
+    echo "❌ Repository not found. Run './scripts/build-apt-repository.sh' first."
     exit 1
 fi
 
 # Deploy repository
 echo "📤 Uploading repository files..."
-rsync -av --progress "$LOCAL_REPO/" "$SERVER:$REMOTE_PATH/"
-
-# GPG public key is included in the repository directory, so no separate upload needed
-echo "🔑 GPG public key included in repository"
+echo "Not yet implemented. We'll do this when we have a permanent home."
 
 echo ""
 echo "✅ Deployment complete!"

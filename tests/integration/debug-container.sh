@@ -20,14 +20,14 @@ echo ""
 echo "💡 Inside the container you can:"
 echo "  - Start services manually: /test-installation.sh"
 echo "  - Check logs: journalctl or service status"
-echo "  - Test APIs: curl http://localhost:8081/api/v1/health"
+echo "  - Test APIs: curl http://localhost:5055/api/v1/health"
 echo "  - Modify config: nano /etc/wild-cloud-central/config.yaml"
 echo "  - View web files: ls /var/www/html/wild-central/"
 echo ""
 
 # Run container with shell access
 docker run --rm -it \
-  -p 127.0.0.1:9081:8081 \
+  -p 127.0.0.1:9081:5055 \
   -p 127.0.0.1:9080:80 \
   -p 127.0.0.1:9053:53/udp \
   -p 127.0.0.1:9067:67/udp \

@@ -36,7 +36,7 @@ EOF
     echo "✅ New GPG key created with ID: $KEY_ID"
 fi
 
-# Export public key in binary format (consistent with build-repo.sh)
+# Export public key in binary format (consistent with build-apt-repository.sh)
 echo "📤 Exporting public key in binary format for APT..."
 mkdir -p dist
 gpg --export $KEY_ID > dist/wild-cloud-central.gpg

@@ -36,15 +36,15 @@ The project consists of two main phases:
 - Build application: `make build`
 - Build .deb package: `make deb`
 - Run locally: `make run` or `go run .`
-- Test installation: `./test-docker.sh`
+- Test installation: `./tests/integration/test-docker.sh`
 - Clean build artifacts: `make clean`
 
 ### Testing the Installation
 
 Use Docker to test the complete installation process:
-- `./test-docker.sh` - Full installation simulation
+- `./tests/integration/test-docker.sh` - Full installation simulation
 - `docker build -t wild-cloud-central-test .` - Build test environment
-- `docker run --rm -p 8081:8081 -p 8080:80 wild-cloud-central-test` - Run tests
+- `docker run --rm -p 5055:5055 -p 8080:80 wild-cloud-central-test` - Run tests
 
 ### Legacy Bash Scripts (ref/ directory)
 

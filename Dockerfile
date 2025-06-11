@@ -20,10 +20,10 @@ WORKDIR /build
 COPY . .
 
 # Build the .deb package using the Makefile
-RUN make deb
+RUN make package
 
 # Install the .deb package (simulating what a user would do)
-RUN dpkg -i build/wild-cloud-central_0.1.0_amd64.deb || true
+RUN dpkg -i build/wild-cloud-central_0.1.1_amd64.deb || true
 RUN apt-get update && apt-get install -f -y
 
 # Copy example config to the installed location
@@ -35,15 +35,15 @@ RUN chown -R www-data:www-data /var/www/html
 RUN chmod 755 /var/ftpd
 
 # Create a simple test script
-COPY test-installation.sh /test-installation.sh
+COPY tests/test-installation.sh /test-installation.sh
 RUN chmod +x /test-installation.sh
 
 # Expose required ports
-EXPOSE 8081 53/udp 67/udp 69/udp 80
+EXPOSE 5055 53/udp 67/udp 69/udp 80
 
 # Health check to verify service is working
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
-    CMD curl -f http://localhost:8081/api/v1/health || exit 1
+    CMD curl -f http://localhost:5055/api/v1/health || exit 1
 
 # Test the installation
 CMD ["/test-installation.sh"]

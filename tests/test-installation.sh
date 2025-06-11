@@ -73,7 +73,7 @@ sleep 5
 
 # Test health endpoint
 echo "🩺 Testing health endpoint..."
-if curl -s http://localhost:8081/api/v1/health | grep -q "healthy"; then
+if curl -s http://localhost:5055/api/v1/health | grep -q "healthy"; then
     echo "   ✅ Health check passed"
 else
     echo "   ❌ Health check failed"
@@ -82,7 +82,7 @@ fi
 
 # Test configuration endpoint
 echo "🔧 Testing configuration endpoint..."
-CONFIG_RESPONSE=$(curl -s http://localhost:8081/api/v1/config)
+CONFIG_RESPONSE=$(curl -s http://localhost:5055/api/v1/config)
 if echo "$CONFIG_RESPONSE" | grep -q "Server"; then
     echo "   ✅ Configuration endpoint working"
 else
@@ -99,7 +99,7 @@ fi
 
 # Test dnsmasq config generation
 echo "🔧 Testing dnsmasq config generation..."
-if curl -s http://localhost:8081/api/v1/dnsmasq/config | grep -q "interface"; then
+if curl -s http://localhost:5055/api/v1/dnsmasq/config | grep -q "interface"; then
     echo "   ✅ Dnsmasq config generation working"
 else
     echo "   ❌ Dnsmasq config generation failed"
@@ -119,9 +119,9 @@ echo ""
 echo "🎉 All installation tests passed!"
 echo ""
 echo "Services running:"
-echo "  - wild-cloud-central: http://localhost:8081"
+echo "  - wild-cloud-central: http://localhost:5055"
 echo "  - Web interface: http://localhost:80"
-echo "  - API health: http://localhost:8081/api/v1/health"
+echo "  - API health: http://localhost:5055/api/v1/health"
 echo ""
 echo "Installation simulation successful! 🚀"
 

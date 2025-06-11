@@ -3,7 +3,7 @@
 
 # Build configuration
 BINARY_NAME := wild-cloud-central
-VERSION ?= 0.1.0
+VERSION ?= 0.1.1
 BUILD_DIR := build
 DIST_DIR := dist
 DEB_DIR := debian-package
@@ -65,52 +65,24 @@ help:
 
 define package_deb
 	@echo "📦 Creating .deb package for $(1)..."
-	@mkdir -p $(BUILD_DIR)/$(DEB_DIR)-$(1)/DEBIAN
-	@mkdir -p $(BUILD_DIR)/$(DEB_DIR)-$(1)/usr/bin
-	@mkdir -p $(BUILD_DIR)/$(DEB_DIR)-$(1)/etc/systemd/system
-	@mkdir -p $(BUILD_DIR)/$(DEB_DIR)-$(1)/etc/wild-cloud-central
-	@mkdir -p $(BUILD_DIR)/$(DEB_DIR)-$(1)/var/www/html/wild-central
-	@mkdir -p $(BUILD_DIR)/$(DEB_DIR)-$(1)/etc/nginx/sites-available
 	@mkdir -p $(DIST_DIR)/bin $(DIST_DIR)/packages
 	
+	@# Copy debian package structure
+	@cp -r debian/ $(BUILD_DIR)/$(DEB_DIR)-$(1)/
+	
+	@# Copy binary to correct location
 	@cp $(BUILD_DIR)/$(2) $(BUILD_DIR)/$(DEB_DIR)-$(1)/usr/bin/$(BINARY_NAME)
-	@cp wild-cloud-central.service $(BUILD_DIR)/$(DEB_DIR)-$(1)/etc/systemd/system/
-	@cp config.yaml $(BUILD_DIR)/$(DEB_DIR)-$(1)/etc/wild-cloud-central/config.yaml.example
+	
+	@# Copy static web files
 	@cp -r static/* $(BUILD_DIR)/$(DEB_DIR)-$(1)/var/www/html/wild-central/
-	@cp wild-central-nginx.conf $(BUILD_DIR)/$(DEB_DIR)-$(1)/etc/nginx/sites-available/wild-central
-	
-	@# Create control file
-	@echo "Package: wild-cloud-central" > $(BUILD_DIR)/$(DEB_DIR)-$(1)/DEBIAN/control
-	@echo "Version: $(VERSION)" >> $(BUILD_DIR)/$(DEB_DIR)-$(1)/DEBIAN/control
-	@echo "Section: net" >> $(BUILD_DIR)/$(DEB_DIR)-$(1)/DEBIAN/control
-	@echo "Priority: optional" >> $(BUILD_DIR)/$(DEB_DIR)-$(1)/DEBIAN/control
-	@echo "Architecture: $(1)" >> $(BUILD_DIR)/$(DEB_DIR)-$(1)/DEBIAN/control
-	@echo "Depends: dnsmasq, nginx" >> $(BUILD_DIR)/$(DEB_DIR)-$(1)/DEBIAN/control
-	@echo "Maintainer: Wild Cloud Team <admin@wildcloud.local>" >> $(BUILD_DIR)/$(DEB_DIR)-$(1)/DEBIAN/control
-	@echo "Description: Wild Cloud Central Management Service" >> $(BUILD_DIR)/$(DEB_DIR)-$(1)/DEBIAN/control
-	@echo " A web-based management service for wild-cloud infrastructure" >> $(BUILD_DIR)/$(DEB_DIR)-$(1)/DEBIAN/control
-	@echo " providing DNS, DHCP, and PXE boot services configuration." >> $(BUILD_DIR)/$(DEB_DIR)-$(1)/DEBIAN/control
-	
-	@# Create postinst script
-	@echo "#!/bin/bash" > $(BUILD_DIR)/$(DEB_DIR)-$(1)/DEBIAN/postinst
-	@echo "set -e" >> $(BUILD_DIR)/$(DEB_DIR)-$(1)/DEBIAN/postinst
-	@echo "# Create wildcloud user if it doesn't exist" >> $(BUILD_DIR)/$(DEB_DIR)-$(1)/DEBIAN/postinst
-	@echo "if ! id wildcloud >/dev/null 2>&1; then" >> $(BUILD_DIR)/$(DEB_DIR)-$(1)/DEBIAN/postinst
-	@echo "    useradd -r -s /bin/false wildcloud" >> $(BUILD_DIR)/$(DEB_DIR)-$(1)/DEBIAN/postinst
-	@echo "fi" >> $(BUILD_DIR)/$(DEB_DIR)-$(1)/DEBIAN/postinst
-	@echo "# Create required directories" >> $(BUILD_DIR)/$(DEB_DIR)-$(1)/DEBIAN/postinst
-	@echo "mkdir -p /var/lib/wild-cloud-central /var/log/wild-cloud-central /var/www/html/talos /var/ftpd" >> $(BUILD_DIR)/$(DEB_DIR)-$(1)/DEBIAN/postinst
-	@echo "chown wildcloud:wildcloud /var/lib/wild-cloud-central /var/log/wild-cloud-central" >> $(BUILD_DIR)/$(DEB_DIR)-$(1)/DEBIAN/postinst
-	@echo "chown -R www-data:www-data /var/www/html" >> $(BUILD_DIR)/$(DEB_DIR)-$(1)/DEBIAN/postinst
-	@echo "chmod 755 /var/ftpd" >> $(BUILD_DIR)/$(DEB_DIR)-$(1)/DEBIAN/postinst
-	@echo "# Configure nginx" >> $(BUILD_DIR)/$(DEB_DIR)-$(1)/DEBIAN/postinst
-	@echo "ln -sf /etc/nginx/sites-available/wild-central /etc/nginx/sites-enabled/" >> $(BUILD_DIR)/$(DEB_DIR)-$(1)/DEBIAN/postinst
-	@echo "rm -f /etc/nginx/sites-enabled/default" >> $(BUILD_DIR)/$(DEB_DIR)-$(1)/DEBIAN/postinst
-	@echo "# Enable systemd service" >> $(BUILD_DIR)/$(DEB_DIR)-$(1)/DEBIAN/postinst
-	@echo "systemctl daemon-reload" >> $(BUILD_DIR)/$(DEB_DIR)-$(1)/DEBIAN/postinst
-	@echo "systemctl enable wild-cloud-central" >> $(BUILD_DIR)/$(DEB_DIR)-$(1)/DEBIAN/postinst
-	@echo "systemctl reload nginx || true" >> $(BUILD_DIR)/$(DEB_DIR)-$(1)/DEBIAN/postinst
 	@chmod 755 $(BUILD_DIR)/$(DEB_DIR)-$(1)/DEBIAN/postinst
+	@chmod 755 $(BUILD_DIR)/$(DEB_DIR)-$(1)/DEBIAN/prerm
+	@chmod 755 $(BUILD_DIR)/$(DEB_DIR)-$(1)/DEBIAN/postrm
+	
+	@# Substitute placeholders in control file
+	@sed -i 's/VERSION_PLACEHOLDER/$(VERSION)/g' $(BUILD_DIR)/$(DEB_DIR)-$(1)/DEBIAN/control
+	@sed -i 's/ARCH_PLACEHOLDER/$(1)/g' $(BUILD_DIR)/$(DEB_DIR)-$(1)/DEBIAN/control
+	
 	
 	@# Build package and copy to dist directories
 	dpkg-deb --build $(BUILD_DIR)/$(DEB_DIR)-$(1) $(BUILD_DIR)/$(BINARY_NAME)_$(VERSION)_$(1).deb
@@ -184,7 +156,7 @@ install: build
 	sudo cp $(BUILD_DIR)/$(BINARY_NAME) /usr/bin/
 	sudo cp wild-cloud-central.service /etc/systemd/system/
 	sudo mkdir -p /etc/wild-cloud-central
-	sudo cp config.yaml /etc/wild-cloud-central/config.yaml.example
+	sudo cp config.yaml.example /etc/wild-cloud-central/config.yaml.example
 	sudo systemctl daemon-reload
 
 # Build targets - compile binaries only
@@ -203,18 +175,12 @@ package-all: package-arm64 package-amd64
 
 package: package-amd64
 
-# Legacy aliases for backwards compatibility
-deb: package
-deb-arm64: package-arm64
-deb-amd64: package-amd64
-deb-all: package-all
-
-repo: package
-	./scripts/build-repo.sh
+repo: package-all
+	./scripts/build-apt-repository.sh
 
 deploy-repo: repo
-	./scripts/deploy-repo.sh
+	./scripts/deploy-apt-repository.sh
 
 dev:
 	go run . &
-	echo "Server started on http://localhost:8081"
+	echo "Server started on http://localhost:5055"

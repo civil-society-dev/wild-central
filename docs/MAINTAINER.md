@@ -106,7 +106,7 @@ The package automatically:
 make repo
 ```
 
-This uses **aptly** to create a professional APT repository in `dist/repositories/apt/`:
+This uses `./scripts/build-apt-repository.sh` with **aptly** to create a professional APT repository in `dist/repositories/apt/`:
 
 - Complete repository metadata with all hash types (MD5, SHA1, SHA256, SHA512)
 - Contents files for enhanced package discovery
@@ -158,7 +158,7 @@ make clean  # Remove old GPG key and aptly state
 
 ### Repository Deployment
 
-1. **Configure server details** in `scripts/deploy-repo.sh`:
+1. **Configure server details** in `scripts/deploy-apt-repository.sh`:
 
    ```bash
    SERVER="user@mywildcloud.org"
@@ -232,7 +232,7 @@ The target server needs:
    make clean           # Clean previous builds
    make check           # Run quality checks  
    make build-all       # Build all architectures
-   ./test-docker.sh     # Integration tests
+   ./tests/integration/test-docker.sh     # Integration tests
    ```
 
 3. **Create packages and repository**:

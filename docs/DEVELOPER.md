@@ -69,33 +69,33 @@ cluster:
 
 Choose the testing approach that fits your needs:
 
-### 1. Automated Verification - `./test-docker.sh`
+### 1. Automated Verification - `./tests/integration/test-docker.sh`
 - **When to use**: Verify the installation works correctly
 - **What it does**: Builds .deb package, installs it, tests all endpoints automatically
 - **Best for**: CI/CD, quick verification that everything works
 
-### 2. Background Testing - `./start-background.sh` / `./stop-background.sh`  
+### 2. Background Testing - `./tests/integration/start-background.sh` / `./tests/integration/stop-background.sh`  
 - **When to use**: You want to test APIs while doing other work
 - **What it does**: Starts services silently in background, gives you your terminal back
 - **Example workflow**: Start services, test in another terminal, stop when done
 ```bash
-./start-background.sh           # Services start, terminal returns immediately
+./tests/integration/start-background.sh           # Services start, terminal returns immediately
 curl http://localhost:9081/api/v1/health  # Test in same or different terminal
 # Continue working while services run...
-./stop-background.sh            # Clean shutdown when finished
+./tests/integration/stop-background.sh            # Clean shutdown when finished
 ```
 
-### 3. Interactive Development - `./start-interactive.sh`
+### 3. Interactive Development - `./tests/integration/start-interactive.sh`
 - **When to use**: You want to see what's happening as you test
 - **What it does**: Starts services with live logs, takes over your terminal
 - **Example workflow**: Start services, watch logs in real-time, Ctrl+C to stop
 ```bash
-./start-interactive.sh          # Services start, shows live logs
+./tests/integration/start-interactive.sh          # Services start, shows live logs
 # You see all HTTP requests, errors, debug info in real-time
 # Press Ctrl+C when done - terminal is "busy" until then
 ```
 
-### 4. Shell Access - `./debug-container.sh`
+### 4. Shell Access - `./tests/integration/debug-container.sh`
 - **When to use**: Deep debugging, manual service control, file inspection
 - **What it does**: Drops you into the container shell
 - **Best for**: Investigating issues, manually starting/stopping services

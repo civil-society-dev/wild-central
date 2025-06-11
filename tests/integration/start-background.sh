@@ -18,7 +18,7 @@ echo "🌐 Starting services in background..."
 # Start container in background 
 docker run -d \
   --name wild-central-bg \
-  -p 127.0.0.1:9081:8081 \
+  -p 127.0.0.1:9081:5055 \
   -p 127.0.0.1:9080:80 \
   -p 127.0.0.1:9053:53/udp \
   -p 127.0.0.1:9067:67/udp \

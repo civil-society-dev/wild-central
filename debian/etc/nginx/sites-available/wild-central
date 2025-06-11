@@ -1,17 +1,14 @@
 server {
     listen 80;
     server_name _;
-
+    
     # Wild Central Management Interface
-    location / {
-        root /var/www/html/wild-central;
-        index index.html;
-        try_files $uri $uri/ @app;
-    }
+    root /var/www/html/wild-central;
+    index index.html;
 
     # API proxy to wild-cloud-central service
     location /api/ {
-        proxy_pass http://localhost:8081;
+        proxy_pass http://localhost:5055;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -37,12 +34,8 @@ server {
         add_header Cache-Control "public, max-age=86400";
     }
 
-    # Fallback to app for SPA routing
-    location @app {
-        proxy_pass http://localhost:8081;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
+    # Static files
+    location / {
+        try_files $uri $uri/ =404;
     }
 }

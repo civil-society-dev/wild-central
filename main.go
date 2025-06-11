@@ -50,17 +50,28 @@ type App struct {
 
 func main() {
 	app := &App{}
-	
+
 	if err := app.loadConfig(); err != nil {
-		log.Fatal("Failed to load configuration:", err)
+		log.Printf("No configuration found, starting with empty config: %v", err)
+		app.config = &Config{} // Initialize with empty config
 	}
 
 	router := mux.NewRouter()
 	app.setupRoutes(router)
 
-	addr := fmt.Sprintf("%s:%d", app.config.Server.Host, app.config.Server.Port)
+	// Use default server settings if config is empty
+	host := "0.0.0.0"
+	port := 5055
+	if app.config != nil && app.config.Server.Host != "" {
+		host = app.config.Server.Host
+	}
+	if app.config != nil && app.config.Server.Port != 0 {
+		port = app.config.Server.Port
+	}
+
+	addr := fmt.Sprintf("%s:%d", host, port)
 	log.Printf("Starting wild-cloud-central server on %s", addr)
-	
+
 	if err := http.ListenAndServe(addr, router); err != nil {
 		log.Fatal("Server failed to start:", err)
 	}
@@ -88,7 +99,7 @@ func (app *App) loadConfig() error {
 
 	// Set defaults
 	if app.config.Server.Port == 0 {
-		app.config.Server.Port = 8080
+		app.config.Server.Port = 5055
 	}
 	if app.config.Server.Host == "" {
 		app.config.Server.Host = "0.0.0.0"
@@ -101,10 +112,11 @@ func (app *App) setupRoutes(router *mux.Router) {
 	router.HandleFunc("/api/v1/health", app.healthHandler).Methods("GET")
 	router.HandleFunc("/api/v1/config", app.getConfigHandler).Methods("GET")
 	router.HandleFunc("/api/v1/config", app.updateConfigHandler).Methods("PUT")
+	router.HandleFunc("/api/v1/config", app.createConfigHandler).Methods("POST")
 	router.HandleFunc("/api/v1/dnsmasq/config", app.getDnsmasqConfigHandler).Methods("GET")
 	router.HandleFunc("/api/v1/dnsmasq/restart", app.restartDnsmasqHandler).Methods("POST")
 	router.HandleFunc("/api/v1/pxe/assets", app.downloadPXEAssetsHandler).Methods("POST")
-	
+
 	// Serve static files
 	router.PathPrefix("/").Handler(http.FileServer(http.Dir("./static/")))
 }
@@ -120,10 +132,65 @@ func (app *App) healthHandler(w http.ResponseWriter, r *http.Request) {
 
 func (app *App) getConfigHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(app.config)
+	
+	// Check if config is empty/uninitialized
+	if app.config == nil || app.isConfigEmpty() {
+		response := map[string]interface{}{
+			"configured": false,
+			"message":    "No configuration found. Please POST a configuration to /api/v1/config to get started.",
+		}
+		json.NewEncoder(w).Encode(response)
+		return
+	}
+	
+	response := map[string]interface{}{
+		"configured": true,
+		"config":     app.config,
+	}
+	json.NewEncoder(w).Encode(response)
+}
+
+func (app *App) createConfigHandler(w http.ResponseWriter, r *http.Request) {
+	// Only allow config creation if no config exists
+	if app.config != nil && !app.isConfigEmpty() {
+		http.Error(w, "Configuration already exists. Use PUT to update.", http.StatusConflict)
+		return
+	}
+
+	var newConfig Config
+	if err := json.NewDecoder(r.Body).Decode(&newConfig); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	// Set defaults
+	if newConfig.Server.Port == 0 {
+		newConfig.Server.Port = 5055
+	}
+	if newConfig.Server.Host == "" {
+		newConfig.Server.Host = "0.0.0.0"
+	}
+
+	app.config = &newConfig
+
+	// Persist config to file
+	if err := app.saveConfig(); err != nil {
+		log.Printf("Failed to save config: %v", err)
+		http.Error(w, "Failed to save config", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": "created"})
 }
 
 func (app *App) updateConfigHandler(w http.ResponseWriter, r *http.Request) {
+	// Check if config exists
+	if app.config == nil || app.isConfigEmpty() {
+		http.Error(w, "No configuration exists. Use POST to create initial configuration.", http.StatusNotFound)
+		return
+	}
+
 	var newConfig Config
 	if err := json.NewDecoder(r.Body).Decode(&newConfig); err != nil {
 		http.Error(w, "Invalid JSON", http.StatusBadRequest)
@@ -131,60 +198,87 @@ func (app *App) updateConfigHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	app.config = &newConfig
-	
+
 	// Persist config to file
 	if err := app.saveConfig(); err != nil {
 		log.Printf("Failed to save config: %v", err)
 		http.Error(w, "Failed to save config", http.StatusInternalServerError)
 		return
 	}
-	
+
 	// Regenerate and apply dnsmasq config
 	if err := app.updateDnsmasqConfig(); err != nil {
 		log.Printf("Failed to update dnsmasq config: %v", err)
 		http.Error(w, "Failed to update dnsmasq config", http.StatusInternalServerError)
 		return
 	}
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"status": "updated"})
 }
 
 func (app *App) getDnsmasqConfigHandler(w http.ResponseWriter, r *http.Request) {
+	if app.config == nil || app.isConfigEmpty() {
+		http.Error(w, "No configuration available. Please configure the system first.", http.StatusPreconditionFailed)
+		return
+	}
+	
 	config := app.generateDnsmasqConfig()
 	w.Header().Set("Content-Type", "text/plain")
 	w.Write([]byte(config))
 }
 
 func (app *App) restartDnsmasqHandler(w http.ResponseWriter, r *http.Request) {
+	if app.config == nil || app.isConfigEmpty() {
+		http.Error(w, "No configuration available. Please configure the system first.", http.StatusPreconditionFailed)
+		return
+	}
+
 	// Update dnsmasq config first
 	if err := app.updateDnsmasqConfig(); err != nil {
 		log.Printf("Failed to update dnsmasq config: %v", err)
 		http.Error(w, "Failed to update dnsmasq config", http.StatusInternalServerError)
 		return
 	}
-	
+
 	// Restart dnsmasq service
-	cmd := exec.Command("systemctl", "restart", "dnsmasq")
+	cmd := exec.Command("sudo", "/usr/bin/systemctl", "restart", "dnsmasq.service")
 	if err := cmd.Run(); err != nil {
 		log.Printf("Failed to restart dnsmasq: %v", err)
 		http.Error(w, "Failed to restart dnsmasq service", http.StatusInternalServerError)
 		return
 	}
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"status": "restarted"})
 }
 
 func (app *App) downloadPXEAssetsHandler(w http.ResponseWriter, r *http.Request) {
+	if app.config == nil || app.isConfigEmpty() {
+		http.Error(w, "No configuration available. Please configure the system first.", http.StatusPreconditionFailed)
+		return
+	}
+
 	if err := app.downloadTalosAssets(); err != nil {
 		log.Printf("Failed to download PXE assets: %v", err)
 		http.Error(w, "Failed to download PXE assets", http.StatusInternalServerError)
 		return
 	}
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"status": "downloaded"})
+}
+
+// isConfigEmpty checks if the configuration is empty or uninitialized
+func (app *App) isConfigEmpty() bool {
+	if app.config == nil {
+		return true
+	}
+	
+	// Check if any essential fields are empty
+	return app.config.Cloud.Domain == "" || 
+		   app.config.Cloud.DNS.IP == "" ||
+		   app.config.Cluster.Nodes.Talos.Version == ""
 }
 
 func (app *App) generateDnsmasqConfig() string {
@@ -197,9 +291,11 @@ domain-needed
 bogus-priv
 no-resolv
 
-# DNS Forwarding
-server=/%s/%s
-server=/%s/%s
+# DNS Local Resolution - Central server handles these domains authoritatively
+local=/%s/
+address=/%s/%s
+local=/%s/
+address=/%s/%s
 server=1.1.1.1
 server=8.8.8.8
 
@@ -230,7 +326,9 @@ log-dhcp
 		app.config.Cloud.Dnsmasq.Interface,
 		app.config.Cloud.DNS.IP,
 		app.config.Cloud.Domain,
+		app.config.Cloud.Domain,
 		app.config.Cluster.EndpointIP,
+		app.config.Cloud.InternalDomain,
 		app.config.Cloud.InternalDomain,
 		app.config.Cluster.EndpointIP,
 		app.config.Cloud.DHCPRange,
@@ -256,7 +354,7 @@ func (app *App) saveConfig() error {
 
 func (app *App) updateDnsmasqConfig() error {
 	config := app.generateDnsmasqConfig()
-	
+
 	// Write to dnsmasq config file
 	if err := os.WriteFile("/etc/dnsmasq.conf", []byte(config), 0644); err != nil {
 		return fmt.Errorf("writing dnsmasq config: %w", err)
@@ -284,7 +382,7 @@ func (app *App) downloadTalosAssets() error {
 	// Create Talos schematic
 	var buf bytes.Buffer
 	buf.WriteString(bareMetalConfig)
-	
+
 	resp, err := http.Post("https://factory.talos.dev/schematics", "text/yaml", &buf)
 	if err != nil {
 		return fmt.Errorf("creating Talos schematic: %w", err)
@@ -301,14 +399,14 @@ func (app *App) downloadTalosAssets() error {
 	log.Printf("Created Talos schematic with ID: %s", schematic.ID)
 
 	// Download kernel
-	kernelURL := fmt.Sprintf("https://pxe.factory.talos.dev/image/%s/%s/kernel-amd64", 
+	kernelURL := fmt.Sprintf("https://pxe.factory.talos.dev/image/%s/%s/kernel-amd64",
 		schematic.ID, app.config.Cluster.Nodes.Talos.Version)
 	if err := app.downloadFile(kernelURL, filepath.Join(assetsDir, "amd64", "vmlinuz")); err != nil {
 		return fmt.Errorf("downloading kernel: %w", err)
 	}
 
 	// Download initramfs
-	initramfsURL := fmt.Sprintf("https://pxe.factory.talos.dev/image/%s/%s/initramfs-amd64.xz", 
+	initramfsURL := fmt.Sprintf("https://pxe.factory.talos.dev/image/%s/%s/initramfs-amd64.xz",
 		schematic.ID, app.config.Cluster.Nodes.Talos.Version)
 	if err := app.downloadFile(initramfsURL, filepath.Join(assetsDir, "amd64", "initramfs.xz")); err != nil {
 		return fmt.Errorf("downloading initramfs: %w", err)
@@ -333,7 +431,7 @@ boot
 
 	bootloaders := map[string]string{
 		"http://boot.ipxe.org/ipxe.efi":           "/var/ftpd/ipxe.efi",
-		"http://boot.ipxe.org/undionly.kpxe":     "/var/ftpd/undionly.kpxe",
+		"http://boot.ipxe.org/undionly.kpxe":      "/var/ftpd/undionly.kpxe",
 		"http://boot.ipxe.org/arm64-efi/ipxe.efi": "/var/ftpd/ipxe-arm64.efi",
 	}
 

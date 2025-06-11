@@ -51,6 +51,34 @@
         <div class="section">
             <h2>Configuration</h2>
             <button onclick="loadConfig()">Load Current Config</button>
+            <div id="config-status"></div>
+            <div id="config-setup" style="display: none;">
+                <h3>Initial Configuration Setup</h3>
+                <p>No configuration found. Please provide the initial configuration:</p>
+                <textarea id="config-input" rows="20" cols="80" placeholder="Enter YAML configuration...">
+cloud:
+  domain: "wildcloud.local"
+  internalDomain: "cluster.local"
+  dns:
+    ip: "192.168.8.50"
+  router:
+    ip: "192.168.8.1"
+  dhcpRange: "192.168.8.100,192.168.8.200"
+  dnsmasq:
+    interface: "eth0"
+
+cluster:
+  endpointIp: "192.168.8.60"
+  nodes:
+    talos:
+      version: "v1.8.0"
+
+server:
+  host: "0.0.0.0"
+  port: 5055</textarea>
+                <br><br>
+                <button onclick="createConfig()">Create Configuration</button>
+            </div>
             <pre id="config-display"></pre>
         </div>
 
@@ -86,10 +114,108 @@
             try {
                 const response = await fetch('/api/v1/config');
                 const data = await response.json();
-                document.getElementById('config-display').textContent = JSON.stringify(data, null, 2);
+                
+                if (data.configured === false) {
+                    // No config found, show setup interface
+                    document.getElementById('config-status').innerHTML = 
+                        `<div class="status error">${data.message}</div>`;
+                    document.getElementById('config-setup').style.display = 'block';
+                    document.getElementById('config-display').textContent = '';
+                } else {
+                    // Config exists, show it
+                    document.getElementById('config-status').innerHTML = 
+                        `<div class="status success">Configuration loaded successfully</div>`;
+                    document.getElementById('config-setup').style.display = 'none';
+                    document.getElementById('config-display').textContent = JSON.stringify(data.config, null, 2);
+                }
             } catch (error) {
-                document.getElementById('config-display').textContent = `Error: ${error.message}`;
+                document.getElementById('config-status').innerHTML = 
+                    `<div class="status error">Error: ${error.message}</div>`;
+                document.getElementById('config-display').textContent = '';
             }
+        }
+
+        async function createConfig() {
+            try {
+                const yamlInput = document.getElementById('config-input').value;
+                
+                // Convert YAML to JSON (simple approach for this UI)
+                // In a real implementation, you'd want a proper YAML parser
+                const configObj = parseSimpleYaml(yamlInput);
+                
+                const response = await fetch('/api/v1/config', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(configObj)
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    document.getElementById('config-status').innerHTML = 
+                        `<div class="status success">Configuration created successfully! Status: ${data.status}</div>`;
+                    document.getElementById('config-setup').style.display = 'none';
+                    loadConfig(); // Reload to show the new config
+                } else {
+                    const errorText = await response.text();
+                    document.getElementById('config-status').innerHTML = 
+                        `<div class="status error">Failed to create configuration: ${errorText}</div>`;
+                }
+            } catch (error) {
+                document.getElementById('config-status').innerHTML = 
+                    `<div class="status error">Error: ${error.message}</div>`;
+            }
+        }
+
+        // Simple YAML to JSON parser for basic configuration
+        function parseSimpleYaml(yamlText) {
+            const config = {
+                cloud: { dns: {}, router: {}, dnsmasq: {} },
+                cluster: { nodes: { talos: {} } },
+                server: {}
+            };
+
+            const lines = yamlText.split('\n');
+            let currentSection = null;
+            let currentSubsection = null;
+
+            for (const line of lines) {
+                const trimmed = line.trim();
+                if (!trimmed || trimmed.startsWith('#')) continue;
+
+                if (trimmed.startsWith('cloud:')) currentSection = 'cloud';
+                else if (trimmed.startsWith('cluster:')) currentSection = 'cluster';
+                else if (trimmed.startsWith('server:')) currentSection = 'server';
+                else if (trimmed.startsWith('dns:')) currentSubsection = 'dns';
+                else if (trimmed.startsWith('router:')) currentSubsection = 'router';
+                else if (trimmed.startsWith('dnsmasq:')) currentSubsection = 'dnsmasq';
+                else if (trimmed.startsWith('nodes:')) currentSubsection = 'nodes';
+                else if (trimmed.startsWith('talos:')) currentSubsection = 'talos';
+                else if (trimmed.includes(':')) {
+                    const [key, value] = trimmed.split(':').map(s => s.trim());
+                    const cleanValue = value.replace(/"/g, '');
+
+                    if (currentSection === 'cloud') {
+                        if (currentSubsection === 'dns') config.cloud.dns[key] = cleanValue;
+                        else if (currentSubsection === 'router') config.cloud.router[key] = cleanValue;
+                        else if (currentSubsection === 'dnsmasq') config.cloud.dnsmasq[key] = cleanValue;
+                        else config.cloud[key] = cleanValue;
+                    } else if (currentSection === 'cluster') {
+                        if (currentSubsection === 'nodes') {
+                            // Skip nodes level
+                        } else if (currentSubsection === 'talos') {
+                            config.cluster.nodes.talos[key] = cleanValue;
+                        } else {
+                            config.cluster[key] = cleanValue;
+                        }
+                    } else if (currentSection === 'server') {
+                        config.server[key] = key === 'port' ? parseInt(cleanValue) : cleanValue;
+                    }
+                }
+            }
+
+            return config;
         }
 
         async function generateDnsmasqConfig() {

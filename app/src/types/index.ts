@@ -44,10 +44,17 @@ export interface ClusterConfig {
   nodes: NodesConfig;
 }
 
+export interface WildcloudConfig {
+  repository: string;
+  currentPhase?: 'setup' | 'infrastructure' | 'cluster' | 'apps';
+  completedPhases?: ('setup' | 'infrastructure' | 'cluster' | 'apps')[];
+}
+
 export interface Config {
   server: ServerConfig;
   cloud: CloudConfig;
   cluster: ClusterConfig;
+  wildcloud?: WildcloudConfig;
 }
 
 export interface ConfigResponse {

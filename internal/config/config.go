@@ -10,32 +10,37 @@ import (
 
 // Config represents the main configuration structure
 type Config struct {
+	Wildcloud struct {
+		Repository       string   `yaml:"repository" json:"repository"`
+		CurrentPhase     string   `yaml:"currentPhase" json:"currentPhase"`
+		CompletedPhases  []string `yaml:"completedPhases" json:"completedPhases"`
+	} `yaml:"wildcloud" json:"wildcloud"`
 	Server struct {
-		Port int    `yaml:"port"`
-		Host string `yaml:"host"`
-	} `yaml:"server"`
+		Port int    `yaml:"port" json:"port"`
+		Host string `yaml:"host" json:"host"`
+	} `yaml:"server" json:"server"`
 	Cloud struct {
-		Domain         string `yaml:"domain"`
-		InternalDomain string `yaml:"internalDomain"`
+		Domain         string `yaml:"domain" json:"domain"`
+		InternalDomain string `yaml:"internalDomain" json:"internalDomain"`
 		DNS            struct {
-			IP string `yaml:"ip"`
-		} `yaml:"dns"`
+			IP string `yaml:"ip" json:"ip"`
+		} `yaml:"dns" json:"dns"`
 		Router struct {
-			IP string `yaml:"ip"`
-		} `yaml:"router"`
-		DHCPRange string `yaml:"dhcpRange"`
+			IP string `yaml:"ip" json:"ip"`
+		} `yaml:"router" json:"router"`
+		DHCPRange string `yaml:"dhcpRange" json:"dhcpRange"`
 		Dnsmasq   struct {
-			Interface string `yaml:"interface"`
-		} `yaml:"dnsmasq"`
-	} `yaml:"cloud"`
+			Interface string `yaml:"interface" json:"interface"`
+		} `yaml:"dnsmasq" json:"dnsmasq"`
+	} `yaml:"cloud" json:"cloud"`
 	Cluster struct {
-		EndpointIP string `yaml:"endpointIp"`
+		EndpointIP string `yaml:"endpointIp" json:"endpointIp"`
 		Nodes      struct {
 			Talos struct {
-				Version string `yaml:"version"`
-			} `yaml:"talos"`
-		} `yaml:"nodes"`
-	} `yaml:"cluster"`
+				Version string `yaml:"version" json:"version"`
+			} `yaml:"talos" json:"talos"`
+		} `yaml:"nodes" json:"nodes"`
+	} `yaml:"cluster" json:"cluster"`
 }
 
 // Load loads configuration from the specified path

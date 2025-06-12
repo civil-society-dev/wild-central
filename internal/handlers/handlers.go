@@ -57,17 +57,11 @@ func (app *App) StatusHandler(w http.ResponseWriter, r *http.Request) {
 func (app *App) GetConfigHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	
-	log.Printf("Config handler called - config nil? %v", app.Config == nil)
-	if app.Config != nil {
-		log.Printf("Config values - Domain: '%s', DNS IP: '%s', Talos Version: '%s'", 
-			app.Config.Cloud.Domain, 
-			app.Config.Cloud.DNS.IP, 
-			app.Config.Cluster.Nodes.Talos.Version)
-		log.Printf("isConfigEmpty() returns: %v", app.Config.IsEmpty())
-	}
-	
-	// Check if config is empty/uninitialized
-	if app.Config == nil || app.Config.IsEmpty() {
+	// Always reload config from file on each request
+	paths := app.DataManager.GetPaths()
+	cfg, err := config.Load(paths.ConfigFile)
+	if err != nil {
+		log.Printf("Failed to load config from file: %v", err)
 		response := map[string]interface{}{
 			"configured": false,
 			"message":    "No configuration found. Please POST a configuration to /api/v1/config to get started.",
@@ -76,9 +70,25 @@ func (app *App) GetConfigHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	
+	// Update the cached config with fresh data
+	app.Config = cfg
+	
+	log.Printf("Config reloaded - Wildcloud Phase: '%s', Completed: %v", 
+		cfg.Wildcloud.CurrentPhase, cfg.Wildcloud.CompletedPhases)
+	
+	// Check if config is empty/uninitialized
+	if cfg.IsEmpty() {
+		response := map[string]interface{}{
+			"configured": false,
+			"message":    "Configuration is incomplete. Please complete the setup.",
+		}
+		json.NewEncoder(w).Encode(response)
+		return
+	}
+	
 	response := map[string]interface{}{
 		"configured": true,
-		"config":     app.Config,
+		"config":     cfg,
 	}
 	json.NewEncoder(w).Encode(response)
 }

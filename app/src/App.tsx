@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import './App.css';
+import { Cloud } from 'lucide-react';
 import { useApi } from './hooks/useApi';
 import {
   SystemStatus,
@@ -36,9 +36,12 @@ function App() {
   }, [fetchStatus, fetchHealth, fetchConfig]);
 
   return (
-    <div className="App">
-      <div className="container">
-        <h1>🌩️ Wild Cloud Central Management</h1>
+    <div className="min-h-screen bg-background">
+      <div className="container mx-auto p-6 space-y-6">
+        <div className="flex items-center gap-3 mb-8">
+          <Cloud className="h-8 w-8 text-primary" />
+          <h1 className="text-3xl font-bold">Wild Cloud Central Management</h1>
+        </div>
         
         <SystemStatus
           status={status}

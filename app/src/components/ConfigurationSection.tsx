@@ -1,7 +1,9 @@
 import { useState } from 'react';
+import { FileText, Check } from 'lucide-react';
 import { Config, LoadingState, Messages } from '../types';
 import { parseSimpleYaml } from '../utils/yamlParser';
 import { Message } from './Message';
+import { Card, CardHeader, CardTitle, CardContent, Button } from './ui';
 
 interface ConfigurationSectionProps {
   config: Config | null;
@@ -49,45 +51,49 @@ export const ConfigurationSection = ({
   };
 
   return (
-    <div className="section">
-      <h2>Configuration</h2>
-      <div className="section-content">
-        <button onClick={onFetchConfig} disabled={loading.config}>
-          {loading.config ? '⏳ Loading...' : '📄 Load Current Config'}
-        </button>
+    <Card>
+      <CardHeader>
+        <CardTitle>Configuration</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <Button onClick={onFetchConfig} disabled={loading.config} variant="outline">
+          <FileText className="mr-2 h-4 w-4" />
+          {loading.config ? 'Loading...' : 'Load Current Config'}
+        </Button>
         
         <Message message={messages.config} />
         
         {showConfigSetup && (
-          <div className="config-setup">
-            <h3>Initial Configuration Setup</h3>
-            <p>No configuration found. Please provide the initial configuration:</p>
+          <div className="space-y-4">
+            <div>
+              <h3 className="text-lg font-medium">Initial Configuration Setup</h3>
+              <p className="text-sm text-muted-foreground">No configuration found. Please provide the initial configuration:</p>
+            </div>
             <textarea
               value={configText}
               onChange={(e) => setConfigText(e.target.value)}
               rows={20}
-              cols={80}
+              className="w-full font-mono text-sm border rounded-md p-3 bg-background"
               placeholder="Enter YAML configuration..."
             />
-            <div className="button-group">
-              <button onClick={handleCreateConfig} disabled={loading.createConfig}>
-                {loading.createConfig ? '⏳ Creating...' : '✅ Create Configuration'}
-              </button>
-            </div>
+            <Button onClick={handleCreateConfig} disabled={loading.createConfig}>
+              <Check className="mr-2 h-4 w-4" />
+              {loading.createConfig ? 'Creating...' : 'Create Configuration'}
+            </Button>
           </div>
         )}
         
         {config && (
-          <pre className="config-display">
+          <pre className="p-4 bg-muted rounded-md text-sm overflow-auto max-h-96">
             {JSON.stringify(config, null, 2)}
           </pre>
         )}
         
         {/* Debug info */}
-        <div style={{marginTop: '10px', fontSize: '12px', color: '#666'}}>
+        <div className="text-xs text-muted-foreground">
           Debug: config={config ? 'exists' : 'null'}, showConfigSetup={showConfigSetup.toString()}
         </div>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 };

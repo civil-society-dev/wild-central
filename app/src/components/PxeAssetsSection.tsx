@@ -1,5 +1,7 @@
+import { Download } from 'lucide-react';
 import { LoadingState, Messages } from '../types';
 import { Message } from './Message';
+import { Card, CardHeader, CardTitle, CardContent, Button } from './ui';
 
 interface PxeAssetsSectionProps {
   loading: LoadingState;
@@ -13,15 +15,18 @@ export const PxeAssetsSection = ({
   onDownloadAssets
 }: PxeAssetsSectionProps) => {
   return (
-    <div className="section">
-      <h2>PXE Boot Assets</h2>
-      <div className="section-content">
-        <button onClick={onDownloadAssets} disabled={loading.assets}>
-          {loading.assets ? '⏳ Downloading...' : '⬇️ Download/Update PXE Assets'}
-        </button>
+    <Card>
+      <CardHeader>
+        <CardTitle>PXE Boot Assets</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <Button onClick={onDownloadAssets} disabled={loading.assets} variant="outline">
+          <Download className="mr-2 h-4 w-4" />
+          {loading.assets ? 'Downloading...' : 'Download/Update PXE Assets'}
+        </Button>
         
         <Message message={messages.assets} />
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 };

@@ -1,6 +1,9 @@
 export { Message } from './Message';
 export { SystemStatus } from './SystemStatus';
 export { ConfigurationSection } from './ConfigurationSection';
+export { ConfigurationForm } from './ConfigurationForm';
+export { ConfigSectionNew } from './ConfigSectionNew';
+export { StatusSection } from './StatusSection';
 export { DnsmasqSection } from './DnsmasqSection';
 export { PxeAssetsSection } from './PxeAssetsSection';
 export { PhaseNavigation } from './PhaseNavigation';

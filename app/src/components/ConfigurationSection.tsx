@@ -1,33 +1,12 @@
-import { useState } from 'react';
-import { FileText, Check, AlertCircle } from 'lucide-react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { FileText, Check, AlertCircle, Loader2 } from 'lucide-react';
 import { useConfig, useMessages } from '../hooks';
-import { parseSimpleYaml } from '../utils/yamlParser';
+import { configFormSchema, defaultConfigValues, type ConfigFormData } from '../schemas/config';
 import { Message } from './Message';
-import { Card, CardHeader, CardTitle, CardContent, Button } from './ui';
-
-const defaultConfig = `cloud:
-  domain: "wildcloud.local"
-  internalDomain: "cluster.local"
-  dns:
-    ip: "192.168.8.50"
-  router:
-    ip: "192.168.8.1"
-  dhcpRange: "192.168.8.100,192.168.8.200"
-  dnsmasq:
-    interface: "eth0"
-
-cluster:
-  endpointIp: "192.168.8.60"
-  nodes:
-    talos:
-      version: "v1.8.0"
-
-server:
-  host: "0.0.0.0"
-  port: 5055`;
+import { Card, CardHeader, CardTitle, CardContent, Button, Form, FormField, FormItem, FormLabel, FormControl, FormMessage, Input } from './ui';
 
 export const ConfigurationSection = () => {
-  const [configText, setConfigText] = useState<string>(defaultConfig);
   const { 
     config, 
     isConfigured, 
@@ -38,24 +17,15 @@ export const ConfigurationSection = () => {
     createConfig, 
     refetch 
   } = useConfig();
-  const { messages, setMessage } = useMessages();
+  const { messages } = useMessages();
 
-  // Handle error messaging
-  if (error) {
-    setMessage('config', `Failed to load config: ${error.message}`, 'error');
-  } else if (isConfigured) {
-    setMessage('config', 'Configuration loaded successfully', 'success');
-  } else if (!isConfigured && !isLoading) {
-    setMessage('config', 'No configuration found', 'error');
-  }
+  const form = useForm<ConfigFormData>({
+    resolver: zodResolver(configFormSchema),
+    defaultValues: defaultConfigValues,
+  });
 
-  const handleCreateConfig = () => {
-    try {
-      const configObj = parseSimpleYaml(configText);
-      createConfig(configObj);
-    } catch (err) {
-      setMessage('config', `Failed to parse YAML: ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
-    }
+  const onSubmit = (data: ConfigFormData) => {
+    createConfig(data);
   };
 
   return (
@@ -85,19 +55,81 @@ export const ConfigurationSection = () => {
           <div className="space-y-4">
             <div>
               <h3 className="text-lg font-medium">Initial Configuration Setup</h3>
-              <p className="text-sm text-muted-foreground">No configuration found. Please provide the initial configuration:</p>
+              <p className="text-sm text-muted-foreground">Configure key settings for your wild-cloud central server:</p>
             </div>
-            <textarea
-              value={configText}
-              onChange={(e) => setConfigText(e.target.value)}
-              rows={20}
-              className="w-full font-mono text-sm border rounded-md p-3 bg-background"
-              placeholder="Enter YAML configuration..."
-            />
-            <Button onClick={handleCreateConfig} disabled={isCreating}>
-              <Check className="mr-2 h-4 w-4" />
-              {isCreating ? 'Creating...' : 'Create Configuration'}
-            </Button>
+            
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="cloud.domain"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Cloud Domain</FormLabel>
+                        <FormControl>
+                          <Input placeholder="wildcloud.local" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="cloud.dns.ip"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>DNS Server IP</FormLabel>
+                        <FormControl>
+                          <Input placeholder="192.168.8.50" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="cloud.router.ip"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Router IP</FormLabel>
+                        <FormControl>
+                          <Input placeholder="192.168.8.1" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="cloud.dnsmasq.interface"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Network Interface</FormLabel>
+                        <FormControl>
+                          <Input placeholder="eth0" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                
+                <Button type="submit" disabled={isCreating}>
+                  {isCreating ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Creating...
+                    </>
+                  ) : (
+                    <>
+                      <Check className="mr-2 h-4 w-4" />
+                      Create Configuration
+                    </>
+                  )}
+                </Button>
+              </form>
+            </Form>
           </div>
         )}
         

@@ -39,10 +39,14 @@ export const SystemStatus = ({
         <Message message={messages.health} />
         
         {status && (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
             <div className="space-y-2">
               <p className="text-sm font-medium text-muted-foreground">Status</p>
-              <Badge variant={status.status === 'running' ? 'default' : 'destructive'}>
+              <Badge 
+                variant={status.status === 'running' ? 'default' : 'destructive'} 
+                className={`text-xs font-medium ${status.status === 'running' ? 'bg-emerald-600 hover:bg-emerald-700' : ''}`}
+              >
+                <div className={`w-2 h-2 rounded-full mr-2 ${status.status === 'running' ? 'bg-emerald-200' : 'bg-red-200'}`} />
                 {status.status}
               </Badge>
             </div>

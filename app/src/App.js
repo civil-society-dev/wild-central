@@ -1,9 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import './App.css';
 
 function App() {
   const [status, setStatus] = useState(null);
-  const [health, setHealth] = useState(null);
   const [config, setConfig] = useState(null);
   const [configText, setConfigText] = useState('');
   const [dnsmasqConfig, setDnsmasqConfig] = useState('');
@@ -34,16 +33,6 @@ server:
   host: "0.0.0.0"
   port: 5055`;
 
-  useEffect(() => {
-    fetchStatus();
-    fetchHealth();
-    fetchConfig();
-    
-    // Refresh status every 30 seconds
-    const interval = setInterval(fetchStatus, 30000);
-    return () => clearInterval(interval);
-  }, []);
-
   const setLoadingState = (key, value) => {
     setLoading(prev => ({ ...prev, [key]: value }));
   };
@@ -52,7 +41,7 @@ server:
     setMessages(prev => ({ ...prev, [key]: { message, type } }));
   };
 
-  const fetchStatus = async () => {
+  const fetchStatus = useCallback(async () => {
     try {
       setLoadingState('status', true);
       const response = await fetch(`${API_BASE}/api/status`);
@@ -65,24 +54,23 @@ server:
     } finally {
       setLoadingState('status', false);
     }
-  };
+  }, [API_BASE]);
 
-  const fetchHealth = async () => {
+  const fetchHealth = useCallback(async () => {
     try {
       setLoadingState('health', true);
       const response = await fetch(`${API_BASE}/api/v1/health`);
       if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
       const data = await response.json();
-      setHealth(data);
       setMessage('health', `Service: ${data.service} - Status: ${data.status}`, 'success');
     } catch (err) {
       setMessage('health', `Health check failed: ${err.message}`, 'error');
     } finally {
       setLoadingState('health', false);
     }
-  };
+  }, [API_BASE]);
 
-  const fetchConfig = async () => {
+  const fetchConfig = useCallback(async () => {
     try {
       setLoadingState('config', true);
       const response = await fetch(`${API_BASE}/api/v1/config`);
@@ -111,7 +99,7 @@ server:
     } finally {
       setLoadingState('config', false);
     }
-  };
+  }, [API_BASE, defaultConfig]);
 
   const createConfig = async () => {
     try {
@@ -245,6 +233,16 @@ server:
       </div>
     );
   };
+
+  useEffect(() => {
+    fetchStatus();
+    fetchHealth();
+    fetchConfig();
+    
+    // Refresh status every 30 seconds
+    const interval = setInterval(fetchStatus, 30000);
+    return () => clearInterval(interval);
+  }, [fetchStatus, fetchHealth, fetchConfig]);
 
   return (
     <div className="App">

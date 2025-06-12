@@ -37,41 +37,39 @@
   --radius: 8px;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    /* Dark theme for night operations */
-    --background: 220 17% 8%;        /* Dark blue-gray */
-    --foreground: 220 10% 88%;       /* Light text */
-    --card: 220 17% 10%;             /* Slightly lighter cards */
-    --card-foreground: 220 10% 88%;  /* Light text on cards */
-    
-    /* Primary stays bright for visibility */
-    --primary: 217 91% 65%;          /* Slightly brighter in dark */
-    --primary-foreground: 220 17% 8%; /* Dark text on primary */
-    
-    /* Secondary & Muted */
-    --secondary: 220 17% 15%;        /* Dark background */
-    --secondary-foreground: 220 10% 75%;
-    --muted: 220 17% 12%;            /* Very dark background */
-    --muted-foreground: 220 10% 60%; /* Muted text */
-    
-    /* Interactive States */
-    --accent: 220 17% 18%;           /* Dark hover state */
-    --accent-foreground: 217 91% 70%; /* Bright blue on dark */
-    
-    /* Status Colors */
-    --destructive: 0 75% 65%;        /* Softer red in dark */
-    --destructive-foreground: 220 10% 88%;
-    
-    /* Borders & Inputs */
-    --border: 220 17% 22%;           /* Visible dark borders */
-    --input: 220 17% 15%;            /* Dark input backgrounds */
-    --ring: 217 91% 65%;             /* Bright focus ring */
-    
-    /* System */
-    --popover: 220 17% 10%;
-    --popover-foreground: 220 10% 88%;
-  }
+.dark {
+  /* Dark theme for night operations */
+  --background: 220 17% 8%;        /* Dark blue-gray */
+  --foreground: 220 10% 88%;       /* Light text */
+  --card: 220 17% 10%;             /* Slightly lighter cards */
+  --card-foreground: 220 10% 88%;  /* Light text on cards */
+  
+  /* Primary stays bright for visibility */
+  --primary: 217 91% 65%;          /* Slightly brighter in dark */
+  --primary-foreground: 220 17% 8%; /* Dark text on primary */
+  
+  /* Secondary & Muted */
+  --secondary: 220 17% 15%;        /* Dark background */
+  --secondary-foreground: 220 10% 75%;
+  --muted: 220 17% 12%;            /* Very dark background */
+  --muted-foreground: 220 10% 60%; /* Muted text */
+  
+  /* Interactive States */
+  --accent: 220 17% 18%;           /* Dark hover state */
+  --accent-foreground: 217 91% 70%; /* Bright blue on dark */
+  
+  /* Status Colors */
+  --destructive: 0 75% 65%;        /* Softer red in dark */
+  --destructive-foreground: 220 10% 88%;
+  
+  /* Borders & Inputs */
+  --border: 220 17% 22%;           /* Visible dark borders */
+  --input: 220 17% 15%;            /* Dark input backgrounds */
+  --ring: 217 91% 65%;             /* Bright focus ring */
+  
+  /* System */
+  --popover: 220 17% 10%;
+  --popover-foreground: 220 10% 88%;
 }
 
 body {

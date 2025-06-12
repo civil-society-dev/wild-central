@@ -7,6 +7,7 @@ import {
   DnsmasqSection,
   PxeAssetsSection
 } from './components';
+import { ThemeToggle } from './components/ThemeToggle';
 
 function App() {
   const {
@@ -39,18 +40,21 @@ function App() {
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-8 max-w-7xl">
         <header className="mb-12">
-          <div className="flex items-center gap-4 mb-3">
-            <div className="p-2 bg-primary/10 rounded-lg">
-              <Cloud className="h-8 w-8 text-primary" />
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-4">
+              <div className="p-2 bg-primary/10 rounded-lg">
+                <Cloud className="h-8 w-8 text-primary" />
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold tracking-tight text-foreground">
+                  Wild Cloud Central
+                </h1>
+                <p className="text-muted-foreground text-lg">
+                  Infrastructure Management Dashboard
+                </p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight text-foreground">
-                Wild Cloud Central
-              </h1>
-              <p className="text-muted-foreground text-lg">
-                Infrastructure Management Dashboard
-              </p>
-            </div>
+            <ThemeToggle />
           </div>
         </header>
         

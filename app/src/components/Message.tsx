@@ -23,11 +23,11 @@ export const Message = ({ message }: MessageProps) => {
   const getVariantStyles = () => {
     switch (message.type) {
       case 'error':
-        return 'border-destructive/40 text-destructive bg-destructive/10 dark:bg-destructive/20';
+        return 'border-destructive/50 text-destructive bg-destructive/10';
       case 'success':
-        return 'border-emerald-200 text-emerald-800 bg-emerald-50 dark:bg-emerald-950/30 dark:text-emerald-300 dark:border-emerald-700';
+        return 'border-green-500/50 text-green-700 bg-green-50 dark:bg-green-950 dark:text-green-400';
       default:
-        return 'border-blue-200 text-blue-800 bg-blue-50 dark:bg-blue-950/30 dark:text-blue-300 dark:border-blue-700';
+        return 'border-blue-500/50 text-blue-700 bg-blue-50 dark:bg-blue-950 dark:text-blue-400';
     }
   };
   

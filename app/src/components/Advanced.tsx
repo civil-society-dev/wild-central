@@ -1,11 +1,7 @@
 import React from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 
-interface AdvancedPhaseProps {
-  onComplete?: () => void;
-}
-
-export function AdvancedPhase({ onComplete }: AdvancedPhaseProps) {
+export function Advanced() {
   return (
     <div className="space-y-6">
       <Card>

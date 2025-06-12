@@ -1,63 +1,71 @@
 import { CheckCircle, Lock, Server, Play, Container, AppWindow, Settings } from 'lucide-react';
 import { cn } from '../lib/utils';
 
-export type Phase = 'setup' | 'infrastructure' | 'cluster' | 'apps' | 'advanced';
+export type Phase = 'setup' | 'infrastructure' | 'cluster' | 'apps';
+export type Tab = Phase | 'advanced';
 
-interface PhaseNavigationProps {
-  currentPhase: Phase;
-  onPhaseChange: (phase: Phase) => void;
+interface TabNavigationProps {
+  currentTab: Tab;
+  onTabChange: (tab: Tab) => void;
   completedPhases: Phase[];
 }
 
-const phases = [
+const tabs = [
   {
-    id: 'setup' as Phase,
+    id: 'setup' as Tab,
     title: 'Setup',
     fullTitle: 'Wild-cloud Central Setup',
     description: 'Configure the central server and dnsmasq services',
     icon: Server,
+    isPhase: true,
   },
   {
-    id: 'infrastructure' as Phase,
+    id: 'infrastructure' as Tab,
     title: 'Infrastructure',
     fullTitle: 'Infrastructure Setup',
     description: 'Connect controller and worker nodes to the wild-cloud',
     icon: Play,
+    isPhase: true,
   },
   {
-    id: 'cluster' as Phase,
+    id: 'cluster' as Tab,
     title: 'Kubernetes',
     fullTitle: 'Kubernetes Installation',
     description: 'Install and configure Kubernetes on the cluster',
     icon: Container,
+    isPhase: true,
   },
   {
-    id: 'apps' as Phase,
+    id: 'apps' as Tab,
     title: 'Apps',
     fullTitle: 'App Management',
     description: 'Install and manage applications on the cluster',
     icon: AppWindow,
+    isPhase: true,
   },
   {
-    id: 'advanced' as Phase,
+    id: 'advanced' as Tab,
     title: 'Advanced',
     fullTitle: 'Advanced Configuration',
     description: 'Advanced settings and system configuration',
     icon: Settings,
+    isPhase: false,
   },
 ];
 
-export function PhaseNavigation({ currentPhase, onPhaseChange, completedPhases }: PhaseNavigationProps) {
-  console.log('PhaseNavigation props:', { currentPhase, completedPhases });
+export function TabNavigation({ currentTab, onTabChange, completedPhases }: TabNavigationProps) {
+  console.log('TabNavigation props:', { currentTab, completedPhases });
   
-  const getPhaseStatus = (phase: Phase, index: number) => {
-    if (completedPhases.includes(phase)) {
-      return 'completed';
+  const getTabStatus = (tab: Tab, index: number) => {
+    // Non-phase tabs (like advanced) are always available
+    const tabData = tabs.find(t => t.id === tab);
+    if (!tabData?.isPhase) {
+      return 'available';
     }
     
-    // Advanced tab is always available
-    if (phase === 'advanced') {
-      return 'available';
+    // For phase tabs, check completion status
+    if (completedPhases.includes(tab as Phase)) {
+      return 'completed';
     }
     
     // Allow access to the first phase always
@@ -66,8 +74,8 @@ export function PhaseNavigation({ currentPhase, onPhaseChange, completedPhases }
     }
     
     // Allow access to the next phase if the previous phase is completed
-    const previousPhase = phases[index - 1];
-    if (completedPhases.includes(previousPhase.id)) {
+    const previousTab = tabs[index - 1];
+    if (previousTab?.isPhase && completedPhases.includes(previousTab.id as Phase)) {
       return 'available';
     }
     
@@ -78,15 +86,15 @@ export function PhaseNavigation({ currentPhase, onPhaseChange, completedPhases }
     <div className="mb-8">
       <div className="border-b border-border">
         <nav className="flex space-x-8 overflow-x-auto">
-          {phases.map((phase, index) => {
-            const status = getPhaseStatus(phase.id, index);
-            const isActive = currentPhase === phase.id;
-            const Icon = phase.icon;
+          {tabs.map((tab, index) => {
+            const status = getTabStatus(tab.id, index);
+            const isActive = currentTab === tab.id;
+            const Icon = tab.icon;
             
             return (
               <button
-                key={phase.id}
-                onClick={() => status !== 'locked' && onPhaseChange(phase.id)}
+                key={tab.id}
+                onClick={() => status !== 'locked' && onTabChange(tab.id)}
                 disabled={status === 'locked'}
                 className={cn(
                   "flex items-center gap-2 px-4 py-3 border-b-2 text-sm font-medium transition-colors whitespace-nowrap",
@@ -103,7 +111,7 @@ export function PhaseNavigation({ currentPhase, onPhaseChange, completedPhases }
                   status === 'completed' && !isActive && "bg-green-100 dark:bg-green-900",
                   status === 'locked' && "bg-muted"
                 )}>
-                  {status === 'completed' ? (
+                  {status === 'completed' && tab.isPhase ? (
                     <CheckCircle className="h-4 w-4 text-green-600" />
                   ) : status === 'locked' ? (
                     <Lock className="h-4 w-4 text-muted-foreground/50" />
@@ -116,10 +124,10 @@ export function PhaseNavigation({ currentPhase, onPhaseChange, completedPhases }
                   )}
                 </div>
                 <span className="hidden sm:inline">
-                  {phase.title}
+                  {tab.title}
                 </span>
                 <span className="sm:hidden">
-                  {index + 1}
+                  {tab.isPhase ? index + 1 : 'A'}
                 </span>
               </button>
             );
@@ -127,22 +135,22 @@ export function PhaseNavigation({ currentPhase, onPhaseChange, completedPhases }
         </nav>
       </div>
       
-      {/* Show current phase description */}
+      {/* Show current tab description */}
       <div className="mt-4 px-4 py-2 bg-muted/30 rounded-lg">
         <div className="flex items-center gap-2">
           <div className="p-1 bg-primary/10 rounded-md">
             {(() => {
-              const currentPhaseData = phases.find(p => p.id === currentPhase);
-              const Icon = currentPhaseData?.icon || Server;
+              const currentTabData = tabs.find(t => t.id === currentTab);
+              const Icon = currentTabData?.icon || Server;
               return <Icon className="h-4 w-4 text-primary" />;
             })()}
           </div>
           <div>
             <h3 className="font-medium text-foreground">
-              {phases.find(p => p.id === currentPhase)?.fullTitle}
+              {tabs.find(t => t.id === currentTab)?.fullTitle}
             </h3>
             <p className="text-sm text-muted-foreground">
-              {phases.find(p => p.id === currentPhase)?.description}
+              {tabs.find(t => t.id === currentTab)?.description}
             </p>
           </div>
         </div>

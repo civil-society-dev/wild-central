@@ -18,7 +18,7 @@ This application provides a modern web UI for configuring and monitoring a wild-
 - **Vite** for build tooling and development server
 - **TanStack Query** for server state management
 - **React Hook Form + Zod** for form validation
-- **Tailwind CSS** for styling with shadcn/ui components
+- **Tailwind CSS** for styling with shadcn/ui component library
 - **Vitest + React Testing Library** for testing
 
 ## Development

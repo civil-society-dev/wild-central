@@ -2,3 +2,8 @@
 dnsmasq
 dpkg
 ftpd
+GOARCH
+postinst
+postrm
+prerm
+shadcn

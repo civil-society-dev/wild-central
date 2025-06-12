@@ -2,19 +2,19 @@ import { useEffect, useState } from 'react';
 import { Cloud } from 'lucide-react';
 import { useConfig } from './hooks';
 import {
-  PhaseNavigation,
+  TabNavigation,
   SetupPhase,
   InfrastructurePhase,
   ClusterPhase,
   AppsPhase,
-  AdvancedPhase,
+  Advanced,
   ErrorBoundary
 } from './components';
 import { ThemeToggle } from './components/ThemeToggle';
-import type { Phase } from './components/PhaseNavigation';
+import type { Phase, Tab } from './components/TabNavigation';
 
 function App() {
-  const [currentPhase, setCurrentPhase] = useState<Phase>('setup');
+  const [currentTab, setCurrentTab] = useState<Tab>('setup');
   const [completedPhases, setCompletedPhases] = useState<Phase[]>([]);
 
   const { config } = useConfig();
@@ -24,8 +24,8 @@ function App() {
     console.log('Config changed:', config);
     console.log('config?.wildcloud:', config?.wildcloud);
     if (config?.wildcloud?.currentPhase) {
-      console.log('Setting currentPhase to:', config.wildcloud.currentPhase);
-      setCurrentPhase(config.wildcloud.currentPhase as Phase);
+      console.log('Setting currentTab to:', config.wildcloud.currentPhase);
+      setCurrentTab(config.wildcloud.currentPhase as Phase);
     }
     if (config?.wildcloud?.completedPhases) {
       console.log('Setting completedPhases to:', config.wildcloud.completedPhases);
@@ -42,12 +42,12 @@ function App() {
     const phases: Phase[] = ['setup', 'infrastructure', 'cluster', 'apps'];
     const currentIndex = phases.indexOf(phase);
     if (currentIndex < phases.length - 1) {
-      setCurrentPhase(phases[currentIndex + 1]);
+      setCurrentTab(phases[currentIndex + 1]);
     }
   };
 
-  const renderCurrentPhase = () => {
-    switch (currentPhase) {
+  const renderCurrentTab = () => {
+    switch (currentTab) {
       case 'setup':
         return (
           <ErrorBoundary>
@@ -75,7 +75,7 @@ function App() {
       case 'advanced':
         return (
           <ErrorBoundary>
-            <AdvancedPhase />
+            <Advanced />
           </ErrorBoundary>
         );
       default:
@@ -109,13 +109,13 @@ function App() {
           </div>
         </header>
         
-        <PhaseNavigation
-          currentPhase={currentPhase}
-          onPhaseChange={setCurrentPhase}
+        <TabNavigation
+          currentTab={currentTab}
+          onTabChange={setCurrentTab}
           completedPhases={completedPhases}
         />
         
-        {renderCurrentPhase()}
+        {renderCurrentTab()}
       </div>
     </div>
   );

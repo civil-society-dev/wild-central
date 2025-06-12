@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiService } from '../services/api';
 import { Config } from '../types';
@@ -20,16 +20,14 @@ export const useConfig = () => {
   const configQuery = useQuery<ConfigResponse>({
     queryKey: ['config'],
     queryFn: apiService.getConfig,
-    select: (data) => {
-      // Update showConfigSetup based on response
-      if (data.configured === false) {
-        setShowConfigSetup(true);
-      } else {
-        setShowConfigSetup(false);
-      }
-      return data;
-    },
   });
+
+  // Update showConfigSetup based on query data
+  useEffect(() => {
+    if (configQuery.data) {
+      setShowConfigSetup(configQuery.data.configured === false);
+    }
+  }, [configQuery.data]);
 
   const createConfigMutation = useMutation<CreateConfigResponse, Error, Config>({
     mutationFn: apiService.createConfig,

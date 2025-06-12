@@ -7,4 +7,5 @@ export { StatusSection } from './StatusSection';
 export { DnsmasqSection } from './DnsmasqSection';
 export { PxeAssetsSection } from './PxeAssetsSection';
 export { PhaseNavigation } from './PhaseNavigation';
+export { ErrorBoundary, ErrorFallback } from './ErrorBoundary';
 export * from './phases';

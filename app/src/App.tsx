@@ -6,7 +6,8 @@ import {
   SetupPhase,
   InfrastructurePhase,
   ClusterPhase,
-  AppsPhase
+  AppsPhase,
+  ErrorBoundary
 } from './components';
 import { ThemeToggle } from './components/ThemeToggle';
 import type { Phase } from './components/PhaseNavigation';
@@ -47,15 +48,35 @@ function App() {
   const renderCurrentPhase = () => {
     switch (currentPhase) {
       case 'setup':
-        return <SetupPhase onComplete={() => handlePhaseComplete('setup')} />;
+        return (
+          <ErrorBoundary>
+            <SetupPhase onComplete={() => handlePhaseComplete('setup')} />
+          </ErrorBoundary>
+        );
       case 'infrastructure':
-        return <InfrastructurePhase onComplete={() => handlePhaseComplete('infrastructure')} />;
+        return (
+          <ErrorBoundary>
+            <InfrastructurePhase onComplete={() => handlePhaseComplete('infrastructure')} />
+          </ErrorBoundary>
+        );
       case 'cluster':
-        return <ClusterPhase onComplete={() => handlePhaseComplete('cluster')} />;
+        return (
+          <ErrorBoundary>
+            <ClusterPhase onComplete={() => handlePhaseComplete('cluster')} />
+          </ErrorBoundary>
+        );
       case 'apps':
-        return <AppsPhase onComplete={() => handlePhaseComplete('apps')} />;
+        return (
+          <ErrorBoundary>
+            <AppsPhase onComplete={() => handlePhaseComplete('apps')} />
+          </ErrorBoundary>
+        );
       default:
-        return <SetupPhase onComplete={() => handlePhaseComplete('setup')} />;
+        return (
+          <ErrorBoundary>
+            <SetupPhase onComplete={() => handlePhaseComplete('setup')} />
+          </ErrorBoundary>
+        );
     }
   };
 

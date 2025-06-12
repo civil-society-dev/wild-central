@@ -1,7 +1,7 @@
-import { CheckCircle, Lock, Server, Play, Container, AppWindow } from 'lucide-react';
+import { CheckCircle, Lock, Server, Play, Container, AppWindow, Settings } from 'lucide-react';
 import { cn } from '../lib/utils';
 
-export type Phase = 'setup' | 'infrastructure' | 'cluster' | 'apps';
+export type Phase = 'setup' | 'infrastructure' | 'cluster' | 'apps' | 'advanced';
 
 interface PhaseNavigationProps {
   currentPhase: Phase;
@@ -38,6 +38,13 @@ const phases = [
     description: 'Install and manage applications on the cluster',
     icon: AppWindow,
   },
+  {
+    id: 'advanced' as Phase,
+    title: 'Advanced',
+    fullTitle: 'Advanced Configuration',
+    description: 'Advanced settings and system configuration',
+    icon: Settings,
+  },
 ];
 
 export function PhaseNavigation({ currentPhase, onPhaseChange, completedPhases }: PhaseNavigationProps) {
@@ -46,6 +53,11 @@ export function PhaseNavigation({ currentPhase, onPhaseChange, completedPhases }
   const getPhaseStatus = (phase: Phase, index: number) => {
     if (completedPhases.includes(phase)) {
       return 'completed';
+    }
+    
+    // Advanced tab is always available
+    if (phase === 'advanced') {
+      return 'available';
     }
     
     // Allow access to the first phase always

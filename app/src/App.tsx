@@ -7,6 +7,7 @@ import {
   InfrastructurePhase,
   ClusterPhase,
   AppsPhase,
+  AdvancedPhase,
   ErrorBoundary
 } from './components';
 import { ThemeToggle } from './components/ThemeToggle';
@@ -37,7 +38,7 @@ function App() {
       setCompletedPhases(prev => [...prev, phase]);
     }
     
-    // Auto-advance to next phase
+    // Auto-advance to next phase (excluding advanced)
     const phases: Phase[] = ['setup', 'infrastructure', 'cluster', 'apps'];
     const currentIndex = phases.indexOf(phase);
     if (currentIndex < phases.length - 1) {
@@ -69,6 +70,12 @@ function App() {
         return (
           <ErrorBoundary>
             <AppsPhase onComplete={() => handlePhaseComplete('apps')} />
+          </ErrorBoundary>
+        );
+      case 'advanced':
+        return (
+          <ErrorBoundary>
+            <AdvancedPhase />
           </ErrorBoundary>
         );
       default:

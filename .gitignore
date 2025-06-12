@@ -2,11 +2,13 @@
 build/
 dist/
 .working/
+wild-central
 
 # Go build cache
 *.o
 *.a
 *.so
+__debug*
 
 # Test binary, built with `go test -c`
 *.test
@@ -45,6 +47,9 @@ pids
 # Cache directories
 .cache/
 *.cache
+
+# Development data directory
+.wildcloud/
 
 # Temporary files
 tmp/

@@ -1,70 +1,110 @@
-# Getting Started with Create React App
+# Wild-Central Web UI
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+A React-based web interface for managing wild-central network appliance configuration and operations.
 
-## Available Scripts
+## Overview
 
-In the project directory, you can run:
+This application provides a modern web UI for configuring and monitoring a wild-central network appliance, which serves as DNS, DHCP, and PXE boot infrastructure for local cloud deployments. The interface handles:
 
-### `npm start`
+- **System Status**: Real-time monitoring of network services and system health
+- **Configuration Management**: YAML-based configuration with validation and form-based editing
+- **DNS/DHCP Management**: dnsmasq configuration and service control
+- **PXE Boot Assets**: Talos Linux image management and boot configuration
+- **Network Appliance Setup**: Guided setup for local cloud infrastructure
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+## Tech Stack
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+- **React 19** with TypeScript
+- **Vite** for build tooling and development server
+- **TanStack Query** for server state management
+- **React Hook Form + Zod** for form validation
+- **Tailwind CSS** for styling with shadcn/ui components
+- **Vitest + React Testing Library** for testing
 
-### `npm test`
+## Development
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+### Prerequisites
 
-### `npm run build`
+- Node.js 18+ 
+- npm
+- Go backend server running on port 5055
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+### Getting Started
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+```bash
+# Install dependencies
+npm install
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+# Start development server (runs on port 5050)
+npm run dev
 
-### `npm run eject`
+# Run tests
+npm test
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+# Build for production
+npm run build
+```
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+### Available Scripts
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+- `npm run dev` - Start development server on port 5050
+- `npm run build` - Build for production to `build/` directory  
+- `npm test` - Run test suite with Vitest
+- `npm run test:ui` - Run tests with UI
+- `npm run test:coverage` - Run tests with coverage report
+- `npm run type-check` - TypeScript type checking
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+### Development Workflow
 
-## Learn More
+The app expects the Go backend to be running on port 5055. Use VSCode launch configurations for full-stack development:
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+1. **"Go Daemon"** - Starts the Go backend server
+2. **"React App"** - Starts the React development server  
+3. **"Full Stack"** - Compound configuration that starts both
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+### API Integration
 
-### Code Splitting
+The React app communicates with the Go backend via REST API:
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+- `GET /api/status` - System status and health
+- `GET /api/config` - Configuration state
+- `POST /api/config` - Create/update configuration
+- `POST /api/dnsmasq/restart` - Restart dnsmasq service
+- And more...
 
-### Analyzing the Bundle Size
+## Architecture
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+### Key Components
 
-### Making a Progressive Web App
+- **App.tsx** - Main application with routing and state management
+- **ConfigurationForm** - Form-based YAML configuration editing
+- **StatusSection** - Real-time system monitoring
+- **DnsmasqSection** - DNS/DHCP service management
+- **PxeAssetsSection** - Boot asset management
+- **ErrorBoundary** - Application error handling
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+### State Management
 
-### Advanced Configuration
+- **TanStack Query** for server state caching and synchronization
+- **React Hook Form** for form state and validation
+- **Theme Context** for dark/light mode
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+### Testing
 
-### Deployment
+Comprehensive test suite covering:
+- React Query hooks
+- Form validation schemas
+- Component rendering and interactions
+- Error boundary behavior
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+## Configuration
 
-### `npm run build` fails to minify
+The app manages YAML configuration with schema validation for:
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+- **Server**: Host and port settings
+- **Cloud**: Domain, DHCP range, DNS, and network settings  
+- **Cluster**: Endpoint IP and Talos version configuration
+
+## Deployment
+
+Built as a static React app that can be served by any web server. In production, it's served by the Go backend's static file handler.

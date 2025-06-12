@@ -150,7 +150,7 @@ describe('config schema validation', () => {
         };
 
         const result = configFormSchema.safeParse(config);
-        expect(result.success).toBe(false);
+        expect(result.success, `Domain "${domain}" should be invalid but passed validation`).toBe(false);
       });
     });
 

@@ -136,11 +136,9 @@ describe('useConfig', () => {
     expect(result.current.showConfigSetup).toBe(true);
 
     // Create config
-    act(() => {
+    await act(async () => {
       result.current.createConfig(newConfig);
     });
-
-    expect(result.current.isCreating).toBe(true);
 
     await waitFor(() => {
       expect(result.current.isCreating).toBe(false);

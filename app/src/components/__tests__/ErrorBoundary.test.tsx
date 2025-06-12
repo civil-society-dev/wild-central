@@ -1,5 +1,5 @@
-import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '../../../test/test-utils';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { render, screen } from '../../test/test-utils';
 import { ErrorBoundary } from '../ErrorBoundary';
 
 // Test component that throws an error
@@ -72,7 +72,7 @@ describe('ErrorBoundary', () => {
     );
 
     expect(screen.queryByText('Error Details (Development Mode)')).not.toBeInTheDocument();
-    expect(screen.getByText('If this problem persists, please contact support')).toBeInTheDocument();
+    expect(screen.getByText('If this problem persists, please contact support with details about what you were doing when the error occurred.')).toBeInTheDocument();
 
     // Restore environment
     process.env.NODE_ENV = originalEnv;

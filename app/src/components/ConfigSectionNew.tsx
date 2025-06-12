@@ -1,8 +1,7 @@
 import { useState } from 'react';
 import { FileText, Check, AlertCircle } from 'lucide-react';
-import { useConfig, useMessages } from '../hooks';
+import { useConfig } from '../hooks';
 import { parseSimpleYaml } from '../utils/yamlParser';
-import { Message } from './Message';
 import { Card, CardHeader, CardTitle, CardContent, Button } from './ui';
 
 const defaultConfig = `cloud:
@@ -26,7 +25,7 @@ server:
   host: "0.0.0.0"
   port: 5055`;
 
-export const ConfigurationSection = () => {
+export const ConfigSectionNew = () => {
   const [configText, setConfigText] = useState<string>(defaultConfig);
   const { 
     config, 
@@ -38,30 +37,20 @@ export const ConfigurationSection = () => {
     createConfig, 
     refetch 
   } = useConfig();
-  const { messages, setMessage } = useMessages();
-
-  // Handle error messaging
-  if (error) {
-    setMessage('config', `Failed to load config: ${error.message}`, 'error');
-  } else if (isConfigured) {
-    setMessage('config', 'Configuration loaded successfully', 'success');
-  } else if (!isConfigured && !isLoading) {
-    setMessage('config', 'No configuration found', 'error');
-  }
 
   const handleCreateConfig = () => {
     try {
       const configObj = parseSimpleYaml(configText);
       createConfig(configObj);
     } catch (err) {
-      setMessage('config', `Failed to parse YAML: ${err instanceof Error ? err.message : 'Unknown error'}`, 'error');
+      console.error('Failed to parse YAML:', err);
     }
   };
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Configuration</CardTitle>
+        <CardTitle>Configuration (React Query)</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <Button onClick={() => refetch()} disabled={isLoading} variant="outline">
@@ -78,9 +67,7 @@ export const ConfigurationSection = () => {
             </div>
           </div>
         )}
-        
-        <Message message={messages.config} />
-        
+
         {showConfigSetup && (
           <div className="space-y-4">
             <div>
@@ -114,7 +101,6 @@ export const ConfigurationSection = () => {
           </div>
         )}
         
-        {/* Debug info */}
         <div className="text-xs text-muted-foreground">
           React Query Status: isLoading={isLoading.toString()}, isConfigured={isConfigured.toString()}, showSetup={showConfigSetup.toString()}
         </div>

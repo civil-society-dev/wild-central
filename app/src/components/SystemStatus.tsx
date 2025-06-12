@@ -1,24 +1,20 @@
-import { RefreshCw, Activity } from 'lucide-react';
-import { Status, LoadingState, Messages } from '../types';
+import { RefreshCw, Activity, AlertCircle } from 'lucide-react';
+import { useStatus, useHealth, useMessages } from '../hooks';
 import { formatTimestamp } from '../utils/formatters';
 import { Message } from './Message';
 import { Card, CardHeader, CardTitle, CardContent, Button, Badge } from './ui';
 
-interface SystemStatusProps {
-  status: Status | null;
-  loading: LoadingState;
-  messages: Messages;
-  onRefreshStatus: () => void;
-  onCheckHealth: () => void;
-}
+export const SystemStatus = () => {
+  const { data: status, isLoading: statusLoading, error: statusError, refetch } = useStatus();
+  const { mutate: checkHealth, isPending: healthLoading, error: healthError, data: healthData } = useHealth();
+  const { messages, setMessage } = useMessages();
 
-export const SystemStatus = ({
-  status,
-  loading,
-  messages,
-  onRefreshStatus,
-  onCheckHealth
-}: SystemStatusProps) => {
+  // Handle health check messaging
+  if (healthError) {
+    setMessage('health', `Health check failed: ${healthError.message}`, 'error');
+  } else if (healthData) {
+    setMessage('health', `Service: ${healthData.service} - Status: ${healthData.status}`, 'success');
+  }
   return (
     <Card>
       <CardHeader>
@@ -26,15 +22,43 @@ export const SystemStatus = ({
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="flex gap-2">
-          <Button onClick={onRefreshStatus} disabled={loading.status} variant="outline">
-            <RefreshCw className={`mr-2 h-4 w-4 ${loading.status ? 'animate-spin' : ''}`} />
-            {loading.status ? 'Checking...' : 'Refresh Status'}
+          <Button onClick={() => refetch()} disabled={statusLoading} variant="outline">
+            <RefreshCw className={`mr-2 h-4 w-4 ${statusLoading ? 'animate-spin' : ''}`} />
+            {statusLoading ? 'Checking...' : 'Refresh Status'}
           </Button>
-          <Button onClick={onCheckHealth} disabled={loading.health} variant="outline">
+          <Button onClick={() => checkHealth()} disabled={healthLoading} variant="outline">
             <Activity className="mr-2 h-4 w-4" />
-            {loading.health ? 'Checking...' : 'Check Health'}
+            {healthLoading ? 'Checking...' : 'Check Health'}
           </Button>
         </div>
+        
+        {statusError && (
+          <div className="p-3 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-md flex items-start gap-2">
+            <AlertCircle className="h-4 w-4 text-red-600 mt-0.5" />
+            <div>
+              <p className="text-sm font-medium text-red-800 dark:text-red-200">Status Error</p>
+              <p className="text-sm text-red-700 dark:text-red-300">{statusError.message}</p>
+            </div>
+          </div>
+        )}
+
+        {healthError && (
+          <div className="p-3 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-md flex items-start gap-2">
+            <AlertCircle className="h-4 w-4 text-red-600 mt-0.5" />
+            <div>
+              <p className="text-sm font-medium text-red-800 dark:text-red-200">Health Check Error</p>
+              <p className="text-sm text-red-700 dark:text-red-300">{healthError.message}</p>
+            </div>
+          </div>
+        )}
+
+        {healthData && (
+          <div className="p-3 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-md">
+            <p className="text-sm text-green-800 dark:text-green-200">
+              ✓ Service: {healthData.service} - Status: {healthData.status}
+            </p>
+          </div>
+        )}
         
         <Message message={messages.health} />
         

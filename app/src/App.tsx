@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Cloud } from 'lucide-react';
-import { useApi } from './hooks/useApi';
+import { useConfig } from './hooks';
 import {
   PhaseNavigation,
   SetupPhase,
@@ -15,22 +15,7 @@ function App() {
   const [currentPhase, setCurrentPhase] = useState<Phase>('setup');
   const [completedPhases, setCompletedPhases] = useState<Phase[]>([]);
 
-  const {
-    config,
-    fetchStatus,
-    fetchHealth,
-    fetchConfig
-  } = useApi();
-
-  useEffect(() => {
-    fetchStatus();
-    fetchHealth();
-    fetchConfig();
-    
-    // Refresh status every 30 seconds
-    const interval = setInterval(fetchStatus, 30000);
-    return () => clearInterval(interval);
-  }, [fetchStatus, fetchHealth, fetchConfig]);
+  const { config } = useConfig();
 
   // Update phase state from config when it changes
   useEffect(() => {

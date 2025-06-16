@@ -64,7 +64,7 @@ export function ConfigEditor() {
         </Button>
       </DialogTrigger>
             
-      <DialogContent className="max-w-6xl">
+      <DialogContent className="max-w-6xl w-full max-h-[80vh] h-full flex flex-col">
         <DialogHeader>
           <DialogTitle>
             Configuration Editor
@@ -73,9 +73,8 @@ export function ConfigEditor() {
             Edit the raw YAML configuration file. This provides direct access to all configuration options.
           </DialogDescription>
         </DialogHeader>
-        
-        {/* Content */}
-        <div className="space-y-4 max-h-[60vh] overflow-y-auto">
+        <div className="flex flex-col flex-1">
+
           {error && error instanceof Error && error.message && (
             <div className="p-3 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-md">
               <p className="text-sm text-red-800 dark:text-red-200">
@@ -97,7 +96,7 @@ export function ConfigEditor() {
             onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setEditedContent(e.target.value)}
             placeholder={isLoading ? "Loading YAML configuration..." : "No configuration found"}
             disabled={isLoading || !!isEndpointMissing}
-            className="min-h-[400px] font-mono text-sm w-full resize-none"
+            className="font-mono text-sm w-full flex-1 min-h-0 resize-none"
           />
           
           {hasChanges && (

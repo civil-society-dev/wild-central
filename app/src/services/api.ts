@@ -43,6 +43,18 @@ class ApiService {
     return this.request<ConfigResponse>('/api/v1/config');
   }
 
+  async getConfigYaml(): Promise<string> {
+    return this.requestText('/api/v1/config/yaml');
+  }
+
+  async updateConfigYaml(yamlContent: string): Promise<StatusResponse> {
+    return this.request<StatusResponse>('/api/v1/config/yaml', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'text/plain' },
+      body: yamlContent
+    });
+  }
+
   async createConfig(config: Config): Promise<StatusResponse> {
     return this.request<StatusResponse>('/api/v1/config', {
       method: 'POST',

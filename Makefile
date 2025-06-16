@@ -2,7 +2,7 @@
 .DEFAULT_GOAL := help
 
 # Build configuration
-BINARY_NAME := wild-cloud-central
+BINARY_NAME := wild-central
 VERSION ?= 0.1.1
 BUILD_DIR := build
 DIST_DIR := dist

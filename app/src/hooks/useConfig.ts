@@ -19,7 +19,7 @@ export const useConfig = () => {
 
   const configQuery = useQuery<ConfigResponse>({
     queryKey: ['config'],
-    queryFn: apiService.getConfig,
+    queryFn: () => apiService.getConfig(),
   });
 
   // Update showConfigSetup based on query data

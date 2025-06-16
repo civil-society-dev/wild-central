@@ -43,14 +43,14 @@ func (app *App) HealthHandler(w http.ResponseWriter, r *http.Request) {
 // StatusHandler handles status requests for the UI
 func (app *App) StatusHandler(w http.ResponseWriter, r *http.Request) {
 	uptime := time.Since(app.StartTime)
-	
+
 	response := map[string]interface{}{
 		"status":    "running",
 		"version":   "1.0.0",
 		"uptime":    uptime.String(),
 		"timestamp": time.Now().UnixMilli(),
 	}
-	
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
 }
@@ -58,7 +58,7 @@ func (app *App) StatusHandler(w http.ResponseWriter, r *http.Request) {
 // GetConfigHandler handles configuration retrieval requests
 func (app *App) GetConfigHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	
+
 	// Always reload config from file on each request
 	paths := app.DataManager.GetPaths()
 	cfg, err := config.Load(paths.ConfigFile)
@@ -71,13 +71,10 @@ func (app *App) GetConfigHandler(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(response)
 		return
 	}
-	
+
 	// Update the cached config with fresh data
 	app.Config = cfg
-	
-	log.Printf("Config reloaded - Wildcloud Phase: '%s', Completed: %v", 
-		cfg.Wildcloud.CurrentPhase, cfg.Wildcloud.CompletedPhases)
-	
+
 	// Check if config is empty/uninitialized
 	if cfg.IsEmpty() {
 		response := map[string]interface{}{
@@ -87,7 +84,7 @@ func (app *App) GetConfigHandler(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(response)
 		return
 	}
-	
+
 	response := map[string]interface{}{
 		"configured": true,
 		"config":     cfg,
@@ -174,7 +171,7 @@ func (app *App) GetConfigYamlHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	paths := app.DataManager.GetPaths()
-	
+
 	// Read the raw config file
 	yamlContent, err := os.ReadFile(paths.ConfigFile)
 	if err != nil {
@@ -207,7 +204,7 @@ func (app *App) UpdateConfigYamlHandler(w http.ResponseWriter, r *http.Request) 
 	}
 
 	paths := app.DataManager.GetPaths()
-	
+
 	// Write the raw YAML content to file
 	if err := os.WriteFile(paths.ConfigFile, yamlContent, 0644); err != nil {
 		log.Printf("Failed to write config file: %v", err)
@@ -238,7 +235,7 @@ func (app *App) UpdateConfigYamlHandler(w http.ResponseWriter, r *http.Request) 
 		// Config was saved but dnsmasq update failed
 		w.Header().Set("Content-Type", "application/json")
 		response := map[string]interface{}{
-			"status":  "saved_with_warnings", 
+			"status":  "saved_with_warnings",
 			"warning": "Configuration saved but failed to update dnsmasq config: " + err.Error(),
 		}
 		json.NewEncoder(w).Encode(response)
@@ -255,12 +252,12 @@ func (app *App) CORSMiddleware(next http.Handler) http.Handler {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
-		
+
 		if r.Method == "OPTIONS" {
 			w.WriteHeader(http.StatusOK)
 			return
 		}
-		
+
 		next.ServeHTTP(w, r)
 	})
 }

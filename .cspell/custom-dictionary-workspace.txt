@@ -7,3 +7,4 @@ postinst
 postrm
 prerm
 shadcn
+wildcloud

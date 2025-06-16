@@ -8,5 +8,6 @@ export { DnsmasqSection } from './DnsmasqSection';
 export { PxeAssetsSection } from './PxeAssetsSection';
 export { TabNavigation } from './TabNavigation';
 export { Advanced } from './Advanced';
+export { ConfigEditor } from './ConfigEditor';
 export { ErrorBoundary, ErrorFallback } from './ErrorBoundary';
 export * from './phases';

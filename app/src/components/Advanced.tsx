@@ -1,5 +1,6 @@
 import React from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
+import { ConfigEditor } from './ConfigEditor';
 
 export function Advanced() {
   return (
@@ -11,10 +12,14 @@ export function Advanced() {
             Advanced settings and system configuration options
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <p className="text-muted-foreground">
-            Advanced configuration options will be available here.
-          </p>
+        <CardContent className="space-y-4">
+          <div>
+            <h3 className="text-sm font-medium mb-2">Configuration Management</h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              Edit the raw YAML configuration file directly. This provides full access to all configuration options.
+            </p>
+            <ConfigEditor />
+          </div>
         </CardContent>
       </Card>
     </div>

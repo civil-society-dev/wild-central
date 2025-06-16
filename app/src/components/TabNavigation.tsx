@@ -100,7 +100,7 @@ export function TabNavigation({ currentTab, onTabChange, completedPhases }: TabN
                   "flex items-center gap-2 px-4 py-3 border-b-2 text-sm font-medium transition-colors whitespace-nowrap",
                   "hover:text-foreground hover:border-border",
                   isActive && "border-primary text-primary",
-                  !isActive && status === 'completed' && "border-transparent text-green-600 hover:text-green-700",
+                  !isActive && status === 'completed' && "border-transparent",
                   !isActive && status === 'available' && "border-transparent text-muted-foreground",
                   status === 'locked' && "border-transparent text-muted-foreground/50 cursor-not-allowed"
                 )}
@@ -108,12 +108,9 @@ export function TabNavigation({ currentTab, onTabChange, completedPhases }: TabN
                 <div className={cn(
                   "p-1 rounded-md",
                   isActive && "bg-primary/10",
-                  status === 'completed' && !isActive && "bg-green-100 dark:bg-green-900",
                   status === 'locked' && "bg-muted"
                 )}>
-                  {status === 'completed' && tab.isPhase ? (
-                    <CheckCircle className="h-4 w-4 text-green-600" />
-                  ) : status === 'locked' ? (
+                  {status === 'locked' ? (
                     <Lock className="h-4 w-4 text-muted-foreground/50" />
                   ) : (
                     <Icon className={cn(

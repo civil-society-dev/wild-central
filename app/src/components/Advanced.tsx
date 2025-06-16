@@ -12,7 +12,7 @@ export function Advanced() {
             Advanced settings and system configuration options
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent>
           <div>
             <h3 className="text-sm font-medium mb-2">Configuration Management</h3>
             <p className="text-sm text-muted-foreground mb-4">

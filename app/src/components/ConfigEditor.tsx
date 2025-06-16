@@ -64,7 +64,7 @@ export function ConfigEditor() {
         </Button>
       </DialogTrigger>
             
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="max-w-6xl">
         <DialogHeader>
           <DialogTitle>
             Configuration Editor

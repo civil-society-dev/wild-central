@@ -86,3 +86,73 @@ body {
 * {
   transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
 }
+
+.bg-card {
+  background-color: hsl(var(--card));
+  color: hsl(var(--card-foreground));
+}
+.border {
+  border-color: hsl(var(--border));
+}
+.bg-background {
+  background-color: hsl(var(--background));
+}
+.text-foreground {
+  color: hsl(var(--foreground));
+}
+.bg-primary {
+  background-color: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+}
+.text-primary {
+  color: hsl(var(--primary));
+}
+.bg-secondary {
+  background-color: hsl(var(--secondary));
+  color: hsl(var(--secondary-foreground));
+}
+.text-secondary { 
+  color: hsl(var(--secondary));
+}
+.bg-muted {
+  background-color: hsl(var(--muted));
+  color: hsl(var(--muted-foreground));
+}
+.text-muted {
+  color: hsl(var(--muted));
+}
+.bg-accent {
+  background-color: hsl(var(--accent));
+  color: hsl(var(--accent-foreground));
+}
+.text-accent {
+  color: hsl(var(--accent));
+}
+.bg-destructive {
+  background-color: hsl(var(--destructive));
+  color: hsl(var(--destructive-foreground));
+}
+.text-destructive {
+  color: hsl(var(--destructive));
+}
+.bg-input {
+  background-color: hsl(var(--input));
+  color: hsl(var(--foreground));
+}
+.ring {
+  box-shadow: 0 0 0 2px hsl(var(--ring));
+}
+.bg-popover {
+  background-color: hsl(var(--popover));
+  color: hsl(var(--popover-foreground));
+}
+.text-popover {
+  color: hsl(var(--popover-foreground));
+}
+.bg-popover-foreground {
+  background-color: hsl(var(--popover-foreground));
+  color: hsl(var(--popover));
+}
+.border-radius {
+  border-radius: var(--radius);
+}

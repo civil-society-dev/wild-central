@@ -60,6 +60,8 @@ func setupRoutes(app *handlers.App, router *mux.Router) {
 	router.HandleFunc("/api/v1/config", app.GetConfigHandler).Methods("GET")
 	router.HandleFunc("/api/v1/config", app.UpdateConfigHandler).Methods("PUT")
 	router.HandleFunc("/api/v1/config", app.CreateConfigHandler).Methods("POST")
+	router.HandleFunc("/api/v1/config/yaml", app.GetConfigYamlHandler).Methods("GET")
+	router.HandleFunc("/api/v1/config/yaml", app.UpdateConfigYamlHandler).Methods("PUT")
 	router.HandleFunc("/api/v1/dnsmasq/config", app.GetDnsmasqConfigHandler).Methods("GET")
 	router.HandleFunc("/api/v1/dnsmasq/restart", app.RestartDnsmasqHandler).Methods("POST")
 	router.HandleFunc("/api/v1/pxe/assets", app.DownloadPXEAssetsHandler).Methods("POST")

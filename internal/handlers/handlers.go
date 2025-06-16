@@ -2,8 +2,10 @@ package handlers
 
 import (
 	"encoding/json"
+	"io"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	"wild-cloud-central/internal/config"
@@ -157,6 +159,89 @@ func (app *App) UpdateConfigHandler(w http.ResponseWriter, r *http.Request) {
 	if err := app.DnsmasqManager.WriteConfig(app.Config, paths.DnsmasqConf); err != nil {
 		log.Printf("Failed to update dnsmasq config: %v", err)
 		http.Error(w, "Failed to update dnsmasq config", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": "updated"})
+}
+
+// GetConfigYamlHandler handles raw YAML config file retrieval
+func (app *App) GetConfigYamlHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	paths := app.DataManager.GetPaths()
+	
+	// Read the raw config file
+	yamlContent, err := os.ReadFile(paths.ConfigFile)
+	if err != nil {
+		if os.IsNotExist(err) {
+			http.Error(w, "Configuration file not found", http.StatusNotFound)
+			return
+		}
+		log.Printf("Failed to read config file: %v", err)
+		http.Error(w, "Failed to read configuration file", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.Write(yamlContent)
+}
+
+// UpdateConfigYamlHandler handles raw YAML config file updates
+func (app *App) UpdateConfigYamlHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPut {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Read the raw YAML content from request body
+	yamlContent, err := io.ReadAll(r.Body)
+	if err != nil {
+		log.Printf("Failed to read request body: %v", err)
+		http.Error(w, "Failed to read request body", http.StatusBadRequest)
+		return
+	}
+
+	paths := app.DataManager.GetPaths()
+	
+	// Write the raw YAML content to file
+	if err := os.WriteFile(paths.ConfigFile, yamlContent, 0644); err != nil {
+		log.Printf("Failed to write config file: %v", err)
+		http.Error(w, "Failed to write configuration file", http.StatusInternalServerError)
+		return
+	}
+
+	// Try to reload the config to validate it and update the in-memory config
+	newConfig, err := config.Load(paths.ConfigFile)
+	if err != nil {
+		log.Printf("Warning: Saved YAML config but failed to parse it: %v", err)
+		// File was written but parsing failed - this is a validation warning
+		w.Header().Set("Content-Type", "application/json")
+		response := map[string]interface{}{
+			"status":  "saved_with_warnings",
+			"warning": "Configuration saved but contains validation errors: " + err.Error(),
+		}
+		json.NewEncoder(w).Encode(response)
+		return
+	}
+
+	// Update in-memory config if parsing succeeded
+	app.Config = newConfig
+
+	// Try to regenerate dnsmasq config if the new config is valid
+	if err := app.DnsmasqManager.WriteConfig(app.Config, paths.DnsmasqConf); err != nil {
+		log.Printf("Warning: Failed to update dnsmasq config: %v", err)
+		// Config was saved but dnsmasq update failed
+		w.Header().Set("Content-Type", "application/json")
+		response := map[string]interface{}{
+			"status":  "saved_with_warnings", 
+			"warning": "Configuration saved but failed to update dnsmasq config: " + err.Error(),
+		}
+		json.NewEncoder(w).Encode(response)
 		return
 	}
 

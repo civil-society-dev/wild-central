@@ -11,10 +11,11 @@ interface InfrastructurePhaseProps {
 interface Node {
   id: string;
   name: string;
-  type: 'controller' | 'worker';
-  status: 'pending' | 'connecting' | 'connected' | 'error';
+  type: 'controller' | 'worker' | 'unassigned';
+  status: 'pending' | 'connecting' | 'connected' | 'healthy' | 'error';
   ipAddress?: string;
   macAddress: string;
+  osVersion?: string;
   specs: {
     cpu: string;
     memory: string;
@@ -23,13 +24,15 @@ interface Node {
 }
 
 export function InfrastructurePhase({ onComplete }: InfrastructurePhaseProps) {
+  const [currentOsVersion, setCurrentOsVersion] = useState('v13.0.5');
   const [nodes, setNodes] = useState<Node[]>([
     {
       id: 'controller-1',
       name: 'Controller Node 1',
       type: 'controller',
-      status: 'pending',
+      status: 'healthy',
       macAddress: '00:1A:2B:3C:4D:5E',
+      osVersion: 'v13.0.4',
       specs: {
         cpu: '4 cores',
         memory: '8GB RAM',
@@ -40,8 +43,9 @@ export function InfrastructurePhase({ onComplete }: InfrastructurePhaseProps) {
       id: 'worker-1',
       name: 'Worker Node 1',
       type: 'worker',
-      status: 'pending',
+      status: 'healthy',
       macAddress: '00:1A:2B:3C:4D:5F',
+      osVersion: 'v13.0.5',
       specs: {
         cpu: '8 cores',
         memory: '16GB RAM',
@@ -52,8 +56,35 @@ export function InfrastructurePhase({ onComplete }: InfrastructurePhaseProps) {
       id: 'worker-2',
       name: 'Worker Node 2',
       type: 'worker',
-      status: 'pending',
+      status: 'healthy',
       macAddress: '00:1A:2B:3C:4D:60',
+      osVersion: 'v13.0.4',
+      specs: {
+        cpu: '8 cores',
+        memory: '16GB RAM',
+        storage: '500GB SSD',
+      },
+    },
+    {
+      id: 'node-1',
+      name: 'Node 1',
+      type: 'unassigned',
+      status: 'pending',
+      macAddress: '00:1A:2B:3C:4D:5E',
+      osVersion: 'v13.0.5',
+      specs: {
+        cpu: '4 cores',
+        memory: '8GB RAM',
+        storage: '120GB SSD',
+      },
+    },
+    {
+      id: 'node-2',
+      name: 'Node 2',
+      type: 'unassigned',
+      status: 'pending',
+      macAddress: '00:1A:2B:3C:4D:5F',
+      osVersion: 'v13.0.5',
       specs: {
         cpu: '8 cores',
         memory: '16GB RAM',
@@ -80,6 +111,7 @@ export function InfrastructurePhase({ onComplete }: InfrastructurePhaseProps) {
       pending: 'secondary',
       connecting: 'default',
       connected: 'success',
+      healthy: 'success',
       error: 'destructive',
     } as const;
 
@@ -87,6 +119,7 @@ export function InfrastructurePhase({ onComplete }: InfrastructurePhaseProps) {
       pending: 'Pending',
       connecting: 'Connecting',
       connected: 'Connected',
+      healthy: 'Healthy',
       error: 'Error',
     };
 
@@ -105,11 +138,13 @@ export function InfrastructurePhase({ onComplete }: InfrastructurePhaseProps) {
     );
   };
 
-  const handleNodeAction = (nodeId: string, action: 'connect' | 'retry') => {
+  const handleNodeAction = (nodeId: string, action: 'connect' | 'retry' | 'upgrade_node') => {
     console.log(`${action} node: ${nodeId}`);
   };
 
   const connectedNodes = nodes.filter(node => node.status === 'connected').length;
+  const assignedNodes = nodes.filter(node => node.type !== 'unassigned');
+  const unassignedNodes = nodes.filter(node => node.type === 'unassigned');
   const totalNodes = nodes.length;
   const isComplete = connectedNodes === totalNodes;
 
@@ -123,36 +158,81 @@ export function InfrastructurePhase({ onComplete }: InfrastructurePhaseProps) {
           <div>
             <h2 className="text-2xl font-semibold">Infrastructure Setup</h2>
             <p className="text-muted-foreground">
-              Connect controller and worker nodes to your wild-cloud
+              Connect machines to your wild-cloud
             </p>
           </div>
         </div>
 
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium">Node Connection Progress</span>
-            <span className="text-sm text-muted-foreground">
-              {connectedNodes} of {totalNodes} nodes connected
-            </span>
-          </div>
-          <div className="w-full bg-muted rounded-full h-2">
-            <div
-              className="bg-primary h-2 rounded-full transition-all duration-300"
-              style={{ width: `${(connectedNodes / totalNodes) * 100}%` }}
-            />
-          </div>
-        </div>
-
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-medium">Cluster Nodes</h3>
-          <Button size="sm" variant="outline">
-            <Plus className="h-4 w-4 mr-2" />
-            Add Node
-          </Button>
-        </div>
-
         <div className="space-y-4">
-          {nodes.map((node) => (
+          <h2 className="text-lg font-medium mb-4">Assigned Nodes ({assignedNodes.length}/{totalNodes})</h2>
+          {assignedNodes.map((node) => (
+            <Card key={node.id} className="p-4">
+              <div className="flex items-center gap-4">
+                <div className="p-2 bg-muted rounded-lg">
+                  {getTypeIcon(node.type)}
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <h4 className="font-medium">{node.name}</h4>
+                    <Badge variant="outline" className="text-xs">
+                      {node.type}
+                    </Badge>
+                    {getStatusIcon(node.status)}
+                  </div>
+                  <div className="text-sm text-muted-foreground mb-2">
+                    MAC: {node.macAddress}
+                    {node.ipAddress && ` • IP: ${node.ipAddress}`}
+                  </div>
+                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                    <span className="flex items-center gap-1">
+                      <Cpu className="h-3 w-3" />
+                      {node.specs.cpu}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Monitor className="h-3 w-3" />
+                      {node.specs.memory}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <HardDrive className="h-3 w-3" />
+                      {node.specs.storage}
+                    </span>
+                    {node.osVersion && (
+                      <span className="flex items-center gap-1">
+                        <Badge variant="outline" className="text-xs">
+                          OS: {node.osVersion}
+                        </Badge>
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  {getStatusBadge(node.status)}
+                  {node.osVersion !== currentOsVersion && (
+                    <Button
+                      size="sm"
+                      onClick={() => handleNodeAction(node.id, 'upgrade_node')}
+                    >
+                      Upgrade OS
+                    </Button>
+                  )}
+                  {node.status === 'error' && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleNodeAction(node.id, 'retry')}
+                    >
+                      Retry
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </Card>
+          ))}
+        </div>
+
+        <h2 className="text-lg font-medium mb-4 mt-6">Unassigned Nodes ({unassignedNodes.length}/{totalNodes})</h2>
+        <div className="space-y-4">
+          {unassignedNodes.map((node) => (
             <Card key={node.id} className="p-4">
               <div className="flex items-center gap-4">
                 <div className="p-2 bg-muted rounded-lg">
@@ -192,7 +272,7 @@ export function InfrastructurePhase({ onComplete }: InfrastructurePhaseProps) {
                       size="sm"
                       onClick={() => handleNodeAction(node.id, 'connect')}
                     >
-                      Connect
+                      Assign
                     </Button>
                   )}
                   {node.status === 'error' && (

@@ -29,9 +29,9 @@ const tabs = [
   },
   {
     id: 'cluster' as Tab,
-    title: 'Kubernetes',
+    title: 'Cluster',
     fullTitle: 'Kubernetes Installation',
-    description: 'Install and configure Kubernetes on the cluster',
+    description: 'Install and configure essential cluster services',
     icon: Container,
     isPhase: true,
   },
@@ -39,7 +39,7 @@ const tabs = [
     id: 'apps' as Tab,
     title: 'Apps',
     fullTitle: 'App Management',
-    description: 'Install and manage applications on the cluster',
+    description: 'Install and manage applications',
     icon: AppWindow,
     isPhase: true,
   },
@@ -132,26 +132,6 @@ export function TabNavigation({ currentTab, onTabChange, completedPhases }: TabN
         </nav>
       </div>
       
-      {/* Show current tab description */}
-      <div className="mt-4 px-4 py-2 bg-muted/30 rounded-lg">
-        <div className="flex items-center gap-2">
-          <div className="p-1 bg-primary/10 rounded-md">
-            {(() => {
-              const currentTabData = tabs.find(t => t.id === currentTab);
-              const Icon = currentTabData?.icon || Server;
-              return <Icon className="h-4 w-4 text-primary" />;
-            })()}
-          </div>
-          <div>
-            <h3 className="font-medium text-foreground">
-              {tabs.find(t => t.id === currentTab)?.fullTitle}
-            </h3>
-            <p className="text-sm text-muted-foreground">
-              {tabs.find(t => t.id === currentTab)?.description}
-            </p>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }

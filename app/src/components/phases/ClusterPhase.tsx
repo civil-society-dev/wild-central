@@ -132,27 +132,31 @@ export function ClusterPhase({ onComplete }: ClusterPhaseProps) {
             <Container className="h-6 w-6 text-primary" />
           </div>
           <div>
-            <h2 className="text-2xl font-semibold">Kubernetes Installation</h2>
+            <h2 className="text-2xl font-semibold">Cluster configuration</h2>
             <p className="text-muted-foreground">
-              Install and configure Kubernetes on your cluster nodes
+              Install and configure essential cluster services
             </p>
           </div>
         </div>
 
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium">Installation Progress</span>
-            <span className="text-sm text-muted-foreground">
-              {readyComponents} of {totalComponents} components ready
-            </span>
-          </div>
-          <div className="w-full bg-muted rounded-full h-2">
-            <div
-              className="bg-primary h-2 rounded-full transition-all duration-300"
-              style={{ width: `${(readyComponents / totalComponents) * 100}%` }}
-            />
-          </div>
-        </div>
+        <div className="flex items-center justify-between mb-4">
+          <pre className="text-xs text-muted-foreground bg-muted p-2 rounded-lg">
+          endpoint: civil<br/>
+          endpointIp: 192.168.8.240<br/>
+          kubernetes:<br/>
+            config: /home/payne/.kube/config<br/>
+            context: default<br/>
+          loadBalancerRange: 192.168.8.240-192.168.8.250<br/>
+          dashboard:<br/>
+            adminUsername: admin<br/>
+          certManager:<br/>
+            namespace: cert-manager<br/>
+            cloudflare:<br/>
+              domain: payne.io<br/>
+              ownerId: cloud-payne-io-cluster<br/>
+          </pre>
+      </div>
+
 
         <div className="space-y-4">
           {components.map((component) => (

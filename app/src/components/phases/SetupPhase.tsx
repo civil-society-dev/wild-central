@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
-import { Cloud, Server, Network, Settings, CheckCircle, AlertCircle, Clock } from 'lucide-react';
+import { Cloud, Server, Network, Settings, CheckCircle, AlertCircle, Clock, HelpCircle, Check } from 'lucide-react';
+import { Input, Label } from '../ui';
 
 interface SetupPhaseProps {
   onComplete?: () => void;
@@ -93,75 +94,145 @@ export function SetupPhase({ onComplete }: SetupPhaseProps) {
 
   return (
     <div className="space-y-6">
+
       <Card className="p-6">
+        
         <div className="flex items-center gap-4 mb-6">
           <div className="p-2 bg-primary/10 rounded-lg">
             <Cloud className="h-6 w-6 text-primary" />
           </div>
           <div>
-            <h2 className="text-2xl font-semibold">Wild-cloud Central Setup</h2>
+            <h2 className="text-2xl font-semibold">Central Setup</h2>
             <p className="text-muted-foreground">
               Configure your central server to manage the wild-cloud infrastructure
             </p>
           </div>
         </div>
 
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium">Setup Progress</span>
-            <span className="text-sm text-muted-foreground">
-              {completedSteps} of {totalSteps} steps completed
-            </span>
+        <div>
+          <Label htmlFor="upstream">Upstream</Label>
+          <div className="flex w-full items-center mt-1">
+            <Input id="internalDomain" value="https://mywildcloud.org"/>
+            <Button variant="ghost">
+              <HelpCircle/>
+            </Button>
           </div>
-          <div className="w-full bg-muted rounded-full h-2">
-            <div
-              className="bg-primary h-2 rounded-full transition-all duration-300"
-              style={{ width: `${(completedSteps / totalSteps) * 100}%` }}
-            />
+        </div>
+        <div>
+          <Label htmlFor="domain">Domain</Label>
+          <div className="flex w-full items-center mt-1">
+            <Input id="domain" value="cloud.payne.io"/>
+            <Button variant="ghost">
+              <HelpCircle/>
+            </Button>
+          </div>
+        </div>
+        <div>
+          <Label htmlFor="internalDomain">Internal Domain</Label>
+          <div className="flex w-full items-center mt-1">
+            <Input id="internalDomain" value="internal.cloud.payne.io"/>
+            <Button variant="ghost">
+              <HelpCircle/>
+            </Button>
           </div>
         </div>
 
-        <div className="space-y-4">
-          {setupSteps.map((step) => {
-            const Icon = step.icon;
-            return (
-              <div
-                key={step.id}
-                className="flex items-center gap-4 p-4 rounded-lg border bg-card"
-              >
-                <div className="p-2 bg-muted rounded-lg">
-                  <Icon className="h-5 w-5" />
-                </div>
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <h3 className="font-medium">{step.title}</h3>
-                    {getStatusIcon(step.status)}
-                  </div>
-                  <p className="text-sm text-muted-foreground">{step.description}</p>
-                </div>
-                <div className="flex items-center gap-3">
-                  {getStatusBadge(step.status)}
-                  {step.status === 'pending' && (
-                    <Button
-                      size="sm"
-                      onClick={() => handleStepAction(step.id)}
-                    >
-                      Start
-                    </Button>
-                  )}
-                  {step.status === 'error' && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleStepAction(step.id)}
-                    >
-                      Retry
-                    </Button>
-                  )}
-                </div>
-              </div>
-            );
-          })}
+      </Card>
+      <Card className="p-6">
+        <div>
+          <h3 className="text-lg font-medium mb-4">Central Service</h3>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6">
+            <div className="flex items-center gap-2">
+              <Server className="h-5 w-5 text-muted-foreground" />
+              <span className="text-sm text-muted-foreground">IP Address: 192.168.8.50</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Network className="h-5 w-5 text-muted-foreground" />
+              <span className="text-sm text-muted-foreground">Network: 192.168.8.0/24</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Settings className="h-5 w-5 text-muted-foreground" />
+              <span className="text-sm text-muted-foreground">Version: 1.0.0 (update available)</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Clock className="h-5 w-5 text-muted-foreground" />
+              <span className="text-sm text-muted-foreground">Age: 12s</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <HelpCircle className="h-5 w-5 text-muted-foreground" />
+              <span className="text-sm text-muted-foreground">Platform: ARM</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <CheckCircle className="h-5 w-5 text-green-500" />
+              <span className="text-sm text-green-500">File permissions: Good</span>
+            </div>
+          </div>
+  
+          <div>
+            <Label htmlFor="ip">IP</Label>
+            <div className="flex w-full items-center mt-1">
+              <Input id="ip" value="192.168.5.80"/>
+              <Button variant="ghost">
+                <HelpCircle/>
+              </Button>
+            </div>
+          </div>
+          <div>
+            <Label htmlFor="interface">Interface</Label>
+            <div className="flex w-full items-center mt-1">
+              <Input id="interface" value="eth0"/>
+              <Button variant="ghost">
+                <HelpCircle/>
+              </Button>
+            </div>
+          </div>
+          <div className="flex gap-2 justify-end mt-4">
+            <Button onClick={() => console.log('Update service')}>
+              Update
+            </Button>
+            <Button onClick={() => console.log('Restart service')}>
+              Restart
+            </Button>
+            <Button onClick={() => console.log('Save Settings')}>
+              View log
+            </Button>
+          </div>
+        </div>
+      </Card>
+
+
+      <Card className="p-6">
+        <div>
+          <h3 className="text-lg font-medium mb-4">DNS</h3>
+          <div>Local resolution: ✅</div>
+        </div>
+      </Card>
+
+      <Card className="p-6">
+        <div>
+          <h3 className="text-lg font-medium mb-4">DHCP</h3>
+          <div>Status: On</div>
+          <Label htmlFor="dhcpRange">Range</Label>
+          <div className="flex w-full items-center mt-1">
+            <Input id="dhcpRange" value="192.168.8.100,192.168.8.239"/>
+            <Button variant="ghost">
+              <HelpCircle/>
+            </Button>
+          </div>
+          <Button onClick={() => console.log('View DHCP clients.')} className="mt-2">
+            Clients
+          </Button>
+        </div>
+      </Card>
+
+      <Card className="p-6">
+        <div>
+          <h3 className="text-lg font-medium mb-4">PXE</h3>
+          <div>Status: On</div>
+          <Button onClick={() => console.log('Download PXE assets.')} className="mt-2">
+            Download PXE Assets
+          </Button>
         </div>
 
         {isComplete && (

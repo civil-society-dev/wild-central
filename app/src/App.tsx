@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Cloud } from 'lucide-react';
+import { Cloud, CloudLightning } from 'lucide-react';
 import { useConfig } from './hooks';
 import {
   TabNavigation,
@@ -94,7 +94,7 @@ function App() {
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-4">
               <div className="p-2 bg-primary/10 rounded-lg">
-                <Cloud className="h-8 w-8 text-primary" />
+                <CloudLightning className="h-8 w-8 text-primary" />
               </div>
               <div>
                 <h1 className="text-3xl font-bold tracking-tight text-foreground">

@@ -1,4 +1,4 @@
-import React, { Component, ErrorInfo, ReactNode } from 'react';
+import React, { Component as ReactComponent, ErrorInfo, ReactNode } from 'react';
 import { AlertTriangle, RefreshCw, Home } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from './ui/card';
@@ -15,7 +15,7 @@ interface State {
   errorInfo?: ErrorInfo;
 }
 
-export class ErrorBoundary extends Component<Props, State> {
+export class ErrorBoundary extends ReactComponent<Props, State> {
   public state: State = {
     hasError: false,
   };
@@ -87,7 +87,7 @@ export const ErrorFallback: React.FC<ErrorFallbackProps> = ({
       <Card className="w-full max-w-2xl">
         <CardHeader>
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-red-100 dark:bg-red-900 rounded-lg">
+            <div className="p-2 rounded-lg">
               <AlertTriangle className="h-6 w-6 text-red-600 dark:text-red-400" />
             </div>
             <div>
@@ -126,7 +126,7 @@ export const ErrorFallback: React.FC<ErrorFallbackProps> = ({
               <div className="space-y-2">
                 <div>
                   <p className="text-xs font-medium text-muted-foreground">Error Message:</p>
-                  <p className="text-xs bg-red-50 dark:bg-red-950 p-2 rounded border font-mono">
+                  <p className="text-xs bg-red-50 p-2 rounded border font-mono">
                     {error.message}
                   </p>
                 </div>
@@ -134,7 +134,7 @@ export const ErrorFallback: React.FC<ErrorFallbackProps> = ({
                 {error.stack && (
                   <div>
                     <p className="text-xs font-medium text-muted-foreground">Stack Trace:</p>
-                    <pre className="text-xs bg-red-50 dark:bg-red-950 p-2 rounded border overflow-auto max-h-40 font-mono">
+                    <pre className="text-xs p-2 rounded border overflow-auto max-h-40 font-mono">
                       {error.stack}
                     </pre>
                   </div>
@@ -143,7 +143,7 @@ export const ErrorFallback: React.FC<ErrorFallbackProps> = ({
                 {errorInfo?.componentStack && (
                   <div>
                     <p className="text-xs font-medium text-muted-foreground">Component Stack:</p>
-                    <pre className="text-xs bg-red-50 dark:bg-red-950 p-2 rounded border overflow-auto max-h-40 font-mono">
+                    <pre className="text-xs p-2 rounded border overflow-auto max-h-40 font-mono">
                       {errorInfo.componentStack}
                     </pre>
                   </div>

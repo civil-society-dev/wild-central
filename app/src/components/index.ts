@@ -5,7 +5,7 @@ export { ConfigurationForm } from './ConfigurationForm';
 export { StatusSection } from './StatusSection';
 export { DnsmasqSection } from './DnsmasqSection';
 export { PxeAssetsSection } from './PxeAssetsSection';
-export { TabNavigation } from './TabNavigation';
+export { AppSidebar } from './AppSidebar';
 export { Advanced } from './Advanced';
 export { ConfigEditor } from './ConfigEditor';
 export { ErrorBoundary, ErrorFallback } from './ErrorBoundary';

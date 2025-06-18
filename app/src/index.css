@@ -35,6 +35,14 @@
   --popover: 0 0% 100%;
   --popover-foreground: 220 15% 20%;
   --radius: 8px;
+  
+  /* Sidebar */
+  --sidebar: 220 13% 95%;
+  --sidebar-foreground: 220 15% 20%;
+  --sidebar-border: 220 13% 88%;
+  --sidebar-accent: 220 13% 93%;
+  --sidebar-accent-foreground: 220 15% 20%;
+  --sidebar-ring: 217 91% 60%;
 }
 
 .dark {
@@ -70,6 +78,14 @@
   /* System */
   --popover: 220 17% 10%;
   --popover-foreground: 220 10% 88%;
+  
+  /* Sidebar */
+  --sidebar: 220 17% 12%;
+  --sidebar-foreground: 220 10% 88%;
+  --sidebar-border: 220 17% 22%;
+  --sidebar-accent: 220 17% 18%;
+  --sidebar-accent-foreground: 220 10% 88%;
+  --sidebar-ring: 217 91% 65%;
 }
 
 body {
@@ -155,4 +171,8 @@ body {
 }
 .border-radius {
   border-radius: var(--radius);
+}
+.bg-sidebar {
+  background-color: hsl(var(--sidebar));
+  color: hsl(var(--sidebar-foreground));
 }

@@ -1,8 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Cloud, CloudLightning } from 'lucide-react';
 import { useConfig } from './hooks';
 import {
-  TabNavigation,
   SetupPhase,
   InfrastructurePhase,
   ClusterPhase,
@@ -10,8 +8,9 @@ import {
   Advanced,
   ErrorBoundary
 } from './components';
-import { ThemeToggle } from './components/ThemeToggle';
-import type { Phase, Tab } from './components/TabNavigation';
+import { AppSidebar } from './components/AppSidebar';
+import { SidebarProvider, SidebarInset, SidebarTrigger } from './components/ui/sidebar';
+import type { Phase, Tab } from './components/AppSidebar';
 
 function App() {
   const [currentTab, setCurrentTab] = useState<Tab>('setup');
@@ -88,36 +87,24 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="container mx-auto px-4 py-8 max-w-7xl">
-        <header className="mb-12">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-4">
-              <div className="p-2 bg-primary/10 rounded-lg">
-                <CloudLightning className="h-8 w-8 text-primary" />
-              </div>
-              <div>
-                <h1 className="text-3xl font-bold tracking-tight text-foreground">
-                  Wild Cloud
-                </h1>
-                <p className="text-muted-foreground text-lg">
-                  Central
-                </p>
-              </div>
-            </div>
-            <ThemeToggle />
+    <SidebarProvider>
+      <AppSidebar
+        currentTab={currentTab}
+        onTabChange={setCurrentTab}
+        completedPhases={completedPhases}
+      />
+      <SidebarInset>
+        <header className="flex h-16 shrink-0 items-center gap-2 px-4">
+          <SidebarTrigger className="-ml-1" />
+          <div className="flex items-center gap-2">
+            <h1 className="text-lg font-semibold">Dashboard</h1>
           </div>
         </header>
-        
-        <TabNavigation
-          currentTab={currentTab}
-          onTabChange={setCurrentTab}
-          completedPhases={completedPhases}
-        />
-        
-        {renderCurrentTab()}
-      </div>
-    </div>
+        <div className="flex flex-1 flex-col gap-4 p-4">
+          {renderCurrentTab()}
+        </div>
+      </SidebarInset>
+    </SidebarProvider>
   );
 }
 

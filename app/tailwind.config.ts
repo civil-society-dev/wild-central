@@ -1,6 +1,7 @@
 import type { Config } from "tailwindcss";
 
 export default {
+  safelist: ["bg-card", "text-card-foreground"],
   content: [
     "./index.html",
     "./src/**/*.{js,ts,jsx,tsx}",

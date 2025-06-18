@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { Card } from '../ui/card';
-import { Button } from '../ui/button';
-import { Badge } from '../ui/badge';
+import { Card } from './ui/card';
+import { Button } from './ui/button';
+import { Badge } from './ui/badge';
 import { Cpu, HardDrive, Network, Monitor, Plus, CheckCircle, AlertCircle, Clock } from 'lucide-react';
 
-interface InfrastructurePhaseProps {
+interface ClusterNodesComponentProps {
   onComplete?: () => void;
 }
 
@@ -23,7 +23,7 @@ interface Node {
   };
 }
 
-export function InfrastructurePhase({ onComplete }: InfrastructurePhaseProps) {
+export function ClusterNodesComponent({ onComplete }: ClusterNodesComponentProps) {
   const [currentOsVersion, setCurrentOsVersion] = useState('v13.0.5');
   const [nodes, setNodes] = useState<Node[]>([
     {
@@ -156,7 +156,7 @@ export function InfrastructurePhase({ onComplete }: InfrastructurePhaseProps) {
             <Network className="h-6 w-6 text-primary" />
           </div>
           <div>
-            <h2 className="text-2xl font-semibold">Infrastructure Setup</h2>
+            <h2 className="text-2xl font-semibold">Cluster Nodes</h2>
             <p className="text-muted-foreground">
               Connect machines to your wild-cloud
             </p>

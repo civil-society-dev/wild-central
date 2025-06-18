@@ -1,9 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useConfig } from './hooks';
 import {
-  InfrastructurePhase,
-  ClusterPhase,
-  AppsPhase,
   Advanced,
   ErrorBoundary
 } from './components';
@@ -11,6 +8,9 @@ import { CentralComponent } from './components/CentralComponent';
 import { DnsComponent } from './components/DnsComponent';
 import { DhcpComponent } from './components/DhcpComponent';
 import { PxeComponent } from './components/PxeComponent';
+import { ClusterNodesComponent } from './components/ClusterNodesComponent';
+import { ClusterServicesComponent } from './components/ClusterServicesComponent';
+import { AppsComponent } from './components/AppsComponent';
 import { AppSidebar } from './components/AppSidebar';
 import { SidebarProvider, SidebarInset, SidebarTrigger } from './components/ui/sidebar';
 import type { Phase, Tab } from './components/AppSidebar';
@@ -78,19 +78,19 @@ function App() {
       case 'infrastructure':
         return (
           <ErrorBoundary>
-            <InfrastructurePhase onComplete={() => handlePhaseComplete('infrastructure')} />
+            <ClusterNodesComponent onComplete={() => handlePhaseComplete('infrastructure')} />
           </ErrorBoundary>
         );
       case 'cluster':
         return (
           <ErrorBoundary>
-            <ClusterPhase onComplete={() => handlePhaseComplete('cluster')} />
+            <ClusterServicesComponent onComplete={() => handlePhaseComplete('cluster')} />
           </ErrorBoundary>
         );
       case 'apps':
         return (
           <ErrorBoundary>
-            <AppsPhase onComplete={() => handlePhaseComplete('apps')} />
+            <AppsComponent onComplete={() => handlePhaseComplete('apps')} />
           </ErrorBoundary>
         );
       case 'advanced':

@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { Card } from '../ui/card';
-import { Button } from '../ui/button';
-import { Badge } from '../ui/badge';
+import { Card } from './ui/card';
+import { Button } from './ui/button';
+import { Badge } from './ui/badge';
 import { 
   AppWindow, 
   Database, 
@@ -20,7 +20,7 @@ import {
   Trash2
 } from 'lucide-react';
 
-interface AppsPhaseProps {
+interface AppsComponentProps {
   onComplete?: () => void;
 }
 
@@ -40,7 +40,7 @@ interface Application {
   urls?: string[];
 }
 
-export function AppsPhase({ onComplete }: AppsPhaseProps) {
+export function AppsComponent({ onComplete }: AppsComponentProps) {
   const [applications, setApplications] = useState<Application[]>([
     {
       id: 'postgres',

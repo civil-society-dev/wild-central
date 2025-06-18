@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { Card } from '../ui/card';
-import { Button } from '../ui/button';
-import { Badge } from '../ui/badge';
+import { Card } from './ui/card';
+import { Button } from './ui/button';
+import { Badge } from './ui/badge';
 import { Container, Shield, Network, Database, CheckCircle, AlertCircle, Clock, Terminal, FileText } from 'lucide-react';
 
-interface ClusterPhaseProps {
+interface ClusterServicesComponentProps {
   onComplete?: () => void;
 }
 
@@ -17,7 +17,7 @@ interface ClusterComponent {
   logs?: string[];
 }
 
-export function ClusterPhase({ onComplete }: ClusterPhaseProps) {
+export function ClusterServicesComponent({ onComplete }: ClusterServicesComponentProps) {
   const [components, setComponents] = useState<ClusterComponent[]>([
     {
       id: 'talos-config',
@@ -132,7 +132,7 @@ export function ClusterPhase({ onComplete }: ClusterPhaseProps) {
             <Container className="h-6 w-6 text-primary" />
           </div>
           <div>
-            <h2 className="text-2xl font-semibold">Cluster configuration</h2>
+            <h2 className="text-2xl font-semibold">Cluster Services</h2>
             <p className="text-muted-foreground">
               Install and configure essential cluster services
             </p>

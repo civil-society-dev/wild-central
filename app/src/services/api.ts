@@ -1,4 +1,4 @@
-import { Status, ConfigResponse, Config, HealthResponse, StatusResponse } from '../types';
+import type { Status, ConfigResponse, Config, HealthResponse, StatusResponse } from '../types';
 
 const API_BASE = 'http://localhost:5055';
 

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Messages } from '../types';
+import type { Messages } from '../types';
 
 export const useMessages = () => {
   const [messages, setMessages] = useState<Messages>({});

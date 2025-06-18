@@ -3,6 +3,7 @@ dnsmasq
 dpkg
 ftpd
 GOARCH
+oklch
 postinst
 postrm
 prerm

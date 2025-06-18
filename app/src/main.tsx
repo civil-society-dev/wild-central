@@ -1,4 +1,4 @@
-import React from 'react';
+import { StrictMode } from 'react';
 import ReactDOM from 'react-dom/client';
 import { QueryClientProvider } from '@tanstack/react-query';
 import './index.css';
@@ -12,7 +12,7 @@ const root = ReactDOM.createRoot(
 );
 
 root.render(
-  <React.StrictMode>
+  <StrictMode>
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <ThemeProvider defaultTheme="light" storageKey="wild-central-theme">
@@ -20,5 +20,5 @@ root.render(
         </ThemeProvider>
       </QueryClientProvider>
     </ErrorBoundary>
-  </React.StrictMode>
+  </StrictMode>
 );

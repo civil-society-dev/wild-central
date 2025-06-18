@@ -1,110 +1,54 @@
-# Wild-Central Web UI
+# React + TypeScript + Vite
 
-A React-based web interface for managing wild-central network appliance configuration and operations.
+This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
-## Overview
+Currently, two official plugins are available:
 
-This application provides a modern web UI for configuring and monitoring a wild-central network appliance, which serves as DNS, DHCP, and PXE boot infrastructure for local cloud deployments. The interface handles:
+- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
+- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
 
-- **System Status**: Real-time monitoring of network services and system health
-- **Configuration Management**: YAML-based configuration with validation and form-based editing
-- **DNS/DHCP Management**: dnsmasq configuration and service control
-- **PXE Boot Assets**: Talos Linux image management and boot configuration
-- **Network Appliance Setup**: Guided setup for local cloud infrastructure
+## Expanding the ESLint configuration
 
-## Tech Stack
+If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
 
-- **React 19** with TypeScript
-- **Vite** for build tooling and development server
-- **TanStack Query** for server state management
-- **React Hook Form + Zod** for form validation
-- **Tailwind CSS** for styling with shadcn/ui component library
-- **Vitest + React Testing Library** for testing
-
-## Development
-
-### Prerequisites
-
-- Node.js 18+ 
-- npm
-- Go backend server running on port 5055
-
-### Getting Started
-
-```bash
-# Install dependencies
-npm install
-
-# Start development server (runs on port 5050)
-npm run dev
-
-# Run tests
-npm test
-
-# Build for production
-npm run build
+```js
+export default tseslint.config({
+  extends: [
+    // Remove ...tseslint.configs.recommended and replace with this
+    ...tseslint.configs.recommendedTypeChecked,
+    // Alternatively, use this for stricter rules
+    ...tseslint.configs.strictTypeChecked,
+    // Optionally, add this for stylistic rules
+    ...tseslint.configs.stylisticTypeChecked,
+  ],
+  languageOptions: {
+    // other options...
+    parserOptions: {
+      project: ['./tsconfig.node.json', './tsconfig.app.json'],
+      tsconfigRootDir: import.meta.dirname,
+    },
+  },
+})
 ```
 
-### Available Scripts
+You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
 
-- `npm run dev` - Start development server on port 5050
-- `npm run build` - Build for production to `build/` directory  
-- `npm test` - Run test suite with Vitest
-- `npm run test:ui` - Run tests with UI
-- `npm run test:coverage` - Run tests with coverage report
-- `npm run type-check` - TypeScript type checking
+```js
+// eslint.config.js
+import reactX from 'eslint-plugin-react-x'
+import reactDom from 'eslint-plugin-react-dom'
 
-### Development Workflow
-
-The app expects the Go backend to be running on port 5055. Use VSCode launch configurations for full-stack development:
-
-1. **"Go Daemon"** - Starts the Go backend server
-2. **"React App"** - Starts the React development server  
-3. **"Full Stack"** - Compound configuration that starts both
-
-### API Integration
-
-The React app communicates with the Go backend via REST API:
-
-- `GET /api/status` - System status and health
-- `GET /api/config` - Configuration state
-- `POST /api/config` - Create/update configuration
-- `POST /api/dnsmasq/restart` - Restart dnsmasq service
-- And more...
-
-## Architecture
-
-### Key Components
-
-- **App.tsx** - Main application with routing and state management
-- **ConfigurationForm** - Form-based YAML configuration editing
-- **StatusSection** - Real-time system monitoring
-- **DnsmasqSection** - DNS/DHCP service management
-- **PxeAssetsSection** - Boot asset management
-- **ErrorBoundary** - Application error handling
-
-### State Management
-
-- **TanStack Query** for server state caching and synchronization
-- **React Hook Form** for form state and validation
-- **Theme Context** for dark/light mode
-
-### Testing
-
-Comprehensive test suite covering:
-- React Query hooks
-- Form validation schemas
-- Component rendering and interactions
-- Error boundary behavior
-
-## Configuration
-
-The app manages YAML configuration with schema validation for:
-
-- **Server**: Host and port settings
-- **Cloud**: Domain, DHCP range, DNS, and network settings  
-- **Cluster**: Endpoint IP and Talos version configuration
-
-## Deployment
-
-Built as a static React app that can be served by any web server. In production, it's served by the Go backend's static file handler.
+export default tseslint.config({
+  plugins: {
+    // Add the react-x and react-dom plugins
+    'react-x': reactX,
+    'react-dom': reactDom,
+  },
+  rules: {
+    // other rules...
+    // Enable its recommended typescript rules
+    ...reactX.configs['recommended-typescript'].rules,
+    ...reactDom.configs.recommended.rules,
+  },
+})
+```

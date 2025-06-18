@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiService } from '../services/api';
-import { Status } from '../types';
+import type { Status } from '../types';
 
 export const useStatus = () => {
   return useQuery<Status>({

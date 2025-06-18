@@ -1,5 +1,5 @@
 import { AlertCircle, CheckCircle, Info } from 'lucide-react';
-import { Message as MessageType } from '../types';
+import type { Message as MessageType } from '../types';
 import { cn } from '@/lib/utils';
 
 interface MessageProps {

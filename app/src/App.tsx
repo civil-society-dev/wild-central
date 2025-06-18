@@ -4,6 +4,7 @@ import {
   Advanced,
   ErrorBoundary
 } from './components';
+import { CloudComponent } from './components/CloudComponent';
 import { CentralComponent } from './components/CentralComponent';
 import { DnsComponent } from './components/DnsComponent';
 import { DhcpComponent } from './components/DhcpComponent';
@@ -16,7 +17,7 @@ import { SidebarProvider, SidebarInset, SidebarTrigger } from './components/ui/s
 import type { Phase, Tab } from './components/AppSidebar';
 
 function App() {
-  const [currentTab, setCurrentTab] = useState<Tab>('central');
+  const [currentTab, setCurrentTab] = useState<Tab>('cloud');
   const [completedPhases, setCompletedPhases] = useState<Phase[]>([]);
 
   const { config } = useConfig();
@@ -50,6 +51,12 @@ function App() {
 
   const renderCurrentTab = () => {
     switch (currentTab) {
+      case 'cloud':
+        return (
+          <ErrorBoundary>
+            <CloudComponent />
+          </ErrorBoundary>
+        );
       case 'central':
         return (
           <ErrorBoundary>
@@ -102,7 +109,7 @@ function App() {
       default:
         return (
           <ErrorBoundary>
-            <CentralComponent />
+            <CloudComponent />
           </ErrorBoundary>
         );
     }

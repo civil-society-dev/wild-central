@@ -17,7 +17,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collap
 import { useTheme } from '../contexts/ThemeContext';
 
 export type Phase = 'setup' | 'infrastructure' | 'cluster' | 'apps';
-export type Tab = Phase | 'advanced' | 'central' | 'dns' | 'dhcp' | 'pxe';
+export type Tab = Phase | 'advanced' | 'cloud' | 'central' | 'dns' | 'dhcp' | 'pxe';
 
 interface AppSidebarProps {
   currentTab: Tab;
@@ -62,8 +62,8 @@ export function AppSidebar({ currentTab, onTabChange, completedPhases }: AppSide
   };
 
   const getTabStatus = (tab: Tab) => {
-    // Non-phase tabs (like advanced) are always available
-    if (tab === 'advanced') {
+    // Non-phase tabs (like advanced and cloud) are always available
+    if (tab === 'advanced' || tab === 'cloud') {
       return 'available';
     }
     
@@ -117,6 +117,35 @@ export function AppSidebar({ currentTab, onTabChange, completedPhases }: AppSide
       
       <SidebarContent>
         <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              isActive={currentTab === 'cloud'}
+              onClick={() => {
+                const status = getTabStatus('cloud');
+                if (status !== 'locked') onTabChange('cloud');
+              }}
+              disabled={getTabStatus('cloud') === 'locked'}
+              tooltip="Configure cloud settings and domains"
+              className={cn(
+                "transition-colors",
+                getTabStatus('cloud') === 'locked' && "opacity-50 cursor-not-allowed"
+              )}
+            >
+              <div className={cn(
+                "p-1 rounded-md",
+                currentTab === 'cloud' && "bg-primary/10",
+                getTabStatus('cloud') === 'locked' && "bg-muted"
+              )}>
+                <CloudLightning className={cn(
+                  "h-4 w-4",
+                  currentTab === 'cloud' && "text-primary",
+                  currentTab !== 'cloud' && "text-muted-foreground"
+                )} />
+              </div>
+              <span className="truncate">Cloud</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+
           <Collapsible defaultOpen className="group/collapsible">
             <SidebarMenuItem>
               <CollapsibleTrigger asChild>

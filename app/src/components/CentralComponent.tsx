@@ -1,6 +1,6 @@
 import { Card } from './ui/card';
 import { Button } from './ui/button';
-import { Cloud, Server, Network, Settings, Clock, HelpCircle, CheckCircle } from 'lucide-react';
+import { Server, Network, Settings, Clock, HelpCircle, CheckCircle } from 'lucide-react';
 import { Input, Label } from './ui';
 
 export function CentralComponent() {
@@ -9,50 +9,18 @@ export function CentralComponent() {
       <Card className="p-6">
         <div className="flex items-center gap-4 mb-6">
           <div className="p-2 bg-primary/10 rounded-lg">
-            <Cloud className="h-6 w-6 text-primary" />
+            <Server className="h-6 w-6 text-primary" />
           </div>
           <div>
-            <h2 className="text-2xl font-semibold">Central Setup</h2>
+            <h2 className="text-2xl font-semibold">Central Service</h2>
             <p className="text-muted-foreground">
-              Configure your central server to manage the wild-cloud infrastructure
+              Monitor and manage the central server service
             </p>
           </div>
         </div>
 
-        <div className="space-y-4">
-          <div>
-            <Label htmlFor="upstream">Upstream</Label>
-            <div className="flex w-full items-center mt-1">
-              <Input id="upstream" value="https://mywildcloud.org"/>
-              <Button variant="ghost">
-                <HelpCircle/>
-              </Button>
-            </div>
-          </div>
-          <div>
-            <Label htmlFor="domain">Domain</Label>
-            <div className="flex w-full items-center mt-1">
-              <Input id="domain" value="cloud.payne.io"/>
-              <Button variant="ghost">
-                <HelpCircle/>
-              </Button>
-            </div>
-          </div>
-          <div>
-            <Label htmlFor="internalDomain">Internal Domain</Label>
-            <div className="flex w-full items-center mt-1">
-              <Input id="internalDomain" value="internal.cloud.payne.io"/>
-              <Button variant="ghost">
-                <HelpCircle/>
-              </Button>
-            </div>
-          </div>
-        </div>
-      </Card>
-
-      <Card className="p-6">
         <div>
-          <h3 className="text-lg font-medium mb-4">Central Service</h3>
+          <h3 className="text-lg font-medium mb-4">Service Status</h3>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6">
             <div className="flex items-center gap-2">

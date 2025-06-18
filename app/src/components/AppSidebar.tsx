@@ -11,9 +11,6 @@ import {
   SidebarMenuSub,
   SidebarMenuSubButton,
   SidebarMenuSubItem,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarRail,
 } from './ui/sidebar';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collapsible';
@@ -116,7 +113,7 @@ export function AppSidebar({ currentTab, onTabChange, completedPhases }: AppSide
             <SidebarMenuItem>
               <CollapsibleTrigger asChild>
                 <SidebarMenuButton>
-                  Setup
+                  Central
                   <ChevronDown className="ml-auto transition-transform group-data-[state=open]/collapsible:rotate-180" />
                 </SidebarMenuButton>
               </CollapsibleTrigger>
@@ -129,7 +126,6 @@ export function AppSidebar({ currentTab, onTabChange, completedPhases }: AppSide
                         const status = getTabStatus('setup');
                         if (status !== 'locked') onTabChange('setup');
                       }}
-                      disabled={getTabStatus('setup') === 'locked'}
                       tooltip="Configure the central server and dnsmasq services"
                       className={cn(
                         "transition-colors",
@@ -150,7 +146,21 @@ export function AppSidebar({ currentTab, onTabChange, completedPhases }: AppSide
                       <span className="truncate">Central Services</span>
                     </SidebarMenuSubButton>
                   </SidebarMenuSubItem>
+                </SidebarMenuSub>
+              </CollapsibleContent>
+            </SidebarMenuItem>
+          </Collapsible>
 
+          <Collapsible defaultOpen className="group/collapsible">
+            <SidebarMenuItem>
+              <CollapsibleTrigger asChild>
+                <SidebarMenuButton>
+                  Cluster
+                  <ChevronDown className="ml-auto transition-transform group-data-[state=open]/collapsible:rotate-180" />
+                </SidebarMenuButton>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <SidebarMenuSub>
                   <SidebarMenuSubItem>
                     <SidebarMenuSubButton
                       isActive={currentTab === 'infrastructure'}
@@ -158,7 +168,6 @@ export function AppSidebar({ currentTab, onTabChange, completedPhases }: AppSide
                         const status = getTabStatus('infrastructure');
                         if (status !== 'locked') onTabChange('infrastructure');
                       }}
-                      disabled={getTabStatus('infrastructure') === 'locked'}
                       tooltip="Connect controller and worker nodes to the wild-cloud"
                       className={cn(
                         "transition-colors",
@@ -187,7 +196,6 @@ export function AppSidebar({ currentTab, onTabChange, completedPhases }: AppSide
                         const status = getTabStatus('cluster');
                         if (status !== 'locked') onTabChange('cluster');
                       }}
-                      disabled={getTabStatus('cluster') === 'locked'}
                       tooltip="Install and configure essential cluster services"
                       className={cn(
                         "transition-colors",

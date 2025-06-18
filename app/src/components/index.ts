@@ -9,4 +9,8 @@ export { AppSidebar } from './AppSidebar';
 export { Advanced } from './Advanced';
 export { ConfigEditor } from './ConfigEditor';
 export { ErrorBoundary, ErrorFallback } from './ErrorBoundary';
+export { CentralComponent } from './CentralComponent';
+export { DnsComponent } from './DnsComponent';
+export { DhcpComponent } from './DhcpComponent';
+export { PxeComponent } from './PxeComponent';
 export * from './phases';

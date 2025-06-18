@@ -1,19 +1,22 @@
 import { useEffect, useState } from 'react';
 import { useConfig } from './hooks';
 import {
-  SetupPhase,
   InfrastructurePhase,
   ClusterPhase,
   AppsPhase,
   Advanced,
   ErrorBoundary
 } from './components';
+import { CentralComponent } from './components/CentralComponent';
+import { DnsComponent } from './components/DnsComponent';
+import { DhcpComponent } from './components/DhcpComponent';
+import { PxeComponent } from './components/PxeComponent';
 import { AppSidebar } from './components/AppSidebar';
 import { SidebarProvider, SidebarInset, SidebarTrigger } from './components/ui/sidebar';
 import type { Phase, Tab } from './components/AppSidebar';
 
 function App() {
-  const [currentTab, setCurrentTab] = useState<Tab>('setup');
+  const [currentTab, setCurrentTab] = useState<Tab>('central');
   const [completedPhases, setCompletedPhases] = useState<Phase[]>([]);
 
   const { config } = useConfig();
@@ -47,12 +50,31 @@ function App() {
 
   const renderCurrentTab = () => {
     switch (currentTab) {
-      case 'setup':
+      case 'central':
         return (
           <ErrorBoundary>
-            <SetupPhase onComplete={() => handlePhaseComplete('setup')} />
+            <CentralComponent />
           </ErrorBoundary>
         );
+      case 'dns':
+        return (
+          <ErrorBoundary>
+            <DnsComponent />
+          </ErrorBoundary>
+        );
+      case 'dhcp':
+        return (
+          <ErrorBoundary>
+            <DhcpComponent />
+          </ErrorBoundary>
+        );
+      case 'pxe':
+        return (
+          <ErrorBoundary>
+            <PxeComponent />
+          </ErrorBoundary>
+        );
+      case 'setup':
       case 'infrastructure':
         return (
           <ErrorBoundary>
@@ -80,7 +102,7 @@ function App() {
       default:
         return (
           <ErrorBoundary>
-            <SetupPhase onComplete={() => handlePhaseComplete('setup')} />
+            <CentralComponent />
           </ErrorBoundary>
         );
     }

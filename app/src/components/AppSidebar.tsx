@@ -1,4 +1,4 @@
-import { CheckCircle, Lock, Server, Play, Container, AppWindow, Settings, CloudLightning, Sun, Moon, Monitor, ChevronDown } from 'lucide-react';
+import { CheckCircle, Lock, Server, Play, Container, AppWindow, Settings, CloudLightning, Sun, Moon, Monitor, ChevronDown, Globe, Wifi, HardDrive } from 'lucide-react';
 import { cn } from '../lib/utils';
 import {
   Sidebar,
@@ -17,7 +17,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collap
 import { useTheme } from '../contexts/ThemeContext';
 
 export type Phase = 'setup' | 'infrastructure' | 'cluster' | 'apps';
-export type Tab = Phase | 'advanced';
+export type Tab = Phase | 'advanced' | 'central' | 'dns' | 'dhcp' | 'pxe';
 
 interface AppSidebarProps {
   currentTab: Tab;
@@ -64,6 +64,14 @@ export function AppSidebar({ currentTab, onTabChange, completedPhases }: AppSide
   const getTabStatus = (tab: Tab) => {
     // Non-phase tabs (like advanced) are always available
     if (tab === 'advanced') {
+      return 'available';
+    }
+    
+    // Central sub-tabs are available if setup phase is available or completed
+    if (tab === 'central' || tab === 'dns' || tab === 'dhcp' || tab === 'pxe') {
+      if (completedPhases.includes('setup')) {
+        return 'completed';
+      }
       return 'available';
     }
     
@@ -121,29 +129,109 @@ export function AppSidebar({ currentTab, onTabChange, completedPhases }: AppSide
                 <SidebarMenuSub>
                   <SidebarMenuSubItem>
                     <SidebarMenuSubButton
-                      isActive={currentTab === 'setup'}
+                      isActive={currentTab === 'central'}
                       onClick={() => {
-                        const status = getTabStatus('setup');
-                        if (status !== 'locked') onTabChange('setup');
+                        const status = getTabStatus('central');
+                        if (status !== 'locked') onTabChange('central');
                       }}
-                      tooltip="Configure the central server and dnsmasq services"
                       className={cn(
                         "transition-colors",
-                        getTabStatus('setup') === 'locked' && "opacity-50 cursor-not-allowed"
+                        getTabStatus('central') === 'locked' && "opacity-50 cursor-not-allowed"
                       )}
                     >
                       <div className={cn(
                         "p-1 rounded-md",
-                        currentTab === 'setup' && "bg-primary/10",
-                        getTabStatus('setup') === 'locked' && "bg-muted"
+                        currentTab === 'central' && "bg-primary/10",
+                        getTabStatus('central') === 'locked' && "bg-muted"
                       )}>
                         <Server className={cn(
                           "h-4 w-4",
-                          currentTab === 'setup' && "text-primary",
-                          currentTab !== 'setup' && "text-muted-foreground"
+                          currentTab === 'central' && "text-primary",
+                          currentTab !== 'central' && "text-muted-foreground"
                         )} />
                       </div>
-                      <span className="truncate">Central Services</span>
+                      <span className="truncate">Central</span>
+                    </SidebarMenuSubButton>
+                  </SidebarMenuSubItem>
+
+                  <SidebarMenuSubItem>
+                    <SidebarMenuSubButton
+                      isActive={currentTab === 'dns'}
+                      onClick={() => {
+                        const status = getTabStatus('dns');
+                        if (status !== 'locked') onTabChange('dns');
+                      }}
+                      className={cn(
+                        "transition-colors",
+                        getTabStatus('dns') === 'locked' && "opacity-50 cursor-not-allowed"
+                      )}
+                    >
+                      <div className={cn(
+                        "p-1 rounded-md",
+                        currentTab === 'dns' && "bg-primary/10",
+                        getTabStatus('dns') === 'locked' && "bg-muted"
+                      )}>
+                        <Globe className={cn(
+                          "h-4 w-4",
+                          currentTab === 'dns' && "text-primary",
+                          currentTab !== 'dns' && "text-muted-foreground"
+                        )} />
+                      </div>
+                      <span className="truncate">DNS</span>
+                    </SidebarMenuSubButton>
+                  </SidebarMenuSubItem>
+
+                  <SidebarMenuSubItem>
+                    <SidebarMenuSubButton
+                      isActive={currentTab === 'dhcp'}
+                      onClick={() => {
+                        const status = getTabStatus('dhcp');
+                        if (status !== 'locked') onTabChange('dhcp');
+                      }}
+                      className={cn(
+                        "transition-colors",
+                        getTabStatus('dhcp') === 'locked' && "opacity-50 cursor-not-allowed"
+                      )}
+                    >
+                      <div className={cn(
+                        "p-1 rounded-md",
+                        currentTab === 'dhcp' && "bg-primary/10",
+                        getTabStatus('dhcp') === 'locked' && "bg-muted"
+                      )}>
+                        <Wifi className={cn(
+                          "h-4 w-4",
+                          currentTab === 'dhcp' && "text-primary",
+                          currentTab !== 'dhcp' && "text-muted-foreground"
+                        )} />
+                      </div>
+                      <span className="truncate">DHCP</span>
+                    </SidebarMenuSubButton>
+                  </SidebarMenuSubItem>
+
+                  <SidebarMenuSubItem>
+                    <SidebarMenuSubButton
+                      isActive={currentTab === 'pxe'}
+                      onClick={() => {
+                        const status = getTabStatus('pxe');
+                        if (status !== 'locked') onTabChange('pxe');
+                      }}
+                      className={cn(
+                        "transition-colors",
+                        getTabStatus('pxe') === 'locked' && "opacity-50 cursor-not-allowed"
+                      )}
+                    >
+                      <div className={cn(
+                        "p-1 rounded-md",
+                        currentTab === 'pxe' && "bg-primary/10",
+                        getTabStatus('pxe') === 'locked' && "bg-muted"
+                      )}>
+                        <HardDrive className={cn(
+                          "h-4 w-4",
+                          currentTab === 'pxe' && "text-primary",
+                          currentTab !== 'pxe' && "text-muted-foreground"
+                        )} />
+                      </div>
+                      <span className="truncate">PXE</span>
                     </SidebarMenuSubButton>
                   </SidebarMenuSubItem>
                 </SidebarMenuSub>
@@ -168,7 +256,6 @@ export function AppSidebar({ currentTab, onTabChange, completedPhases }: AppSide
                         const status = getTabStatus('infrastructure');
                         if (status !== 'locked') onTabChange('infrastructure');
                       }}
-                      tooltip="Connect controller and worker nodes to the wild-cloud"
                       className={cn(
                         "transition-colors",
                         getTabStatus('infrastructure') === 'locked' && "opacity-50 cursor-not-allowed"
@@ -196,7 +283,6 @@ export function AppSidebar({ currentTab, onTabChange, completedPhases }: AppSide
                         const status = getTabStatus('cluster');
                         if (status !== 'locked') onTabChange('cluster');
                       }}
-                      tooltip="Install and configure essential cluster services"
                       className={cn(
                         "transition-colors",
                         getTabStatus('cluster') === 'locked' && "opacity-50 cursor-not-allowed"

@@ -150,6 +150,7 @@ export function AppSidebar({ currentTab, onTabChange, completedPhases }: AppSide
             <SidebarMenuItem>
               <CollapsibleTrigger asChild>
                 <SidebarMenuButton>
+                  <Server className="h-4 w-4" />
                   Central
                   <ChevronDown className="ml-auto transition-transform group-data-[state=open]/collapsible:rotate-180" />
                 </SidebarMenuButton>
@@ -272,6 +273,7 @@ export function AppSidebar({ currentTab, onTabChange, completedPhases }: AppSide
             <SidebarMenuItem>
               <CollapsibleTrigger asChild>
                 <SidebarMenuButton>
+                  <Container className="h-4 w-4" />
                   Cluster
                   <ChevronDown className="ml-auto transition-transform group-data-[state=open]/collapsible:rotate-180" />
                 </SidebarMenuButton>

@@ -24,48 +24,6 @@ interface AppSidebarProps {
   completedPhases: Phase[];
 }
 
-const tabs = [
-  {
-    id: 'setup' as Tab,
-    title: 'Setup',
-    fullTitle: 'Wild-cloud Central Setup',
-    description: 'Configure the central server and dnsmasq services',
-    icon: Server,
-    isPhase: true,
-  },
-  {
-    id: 'infrastructure' as Tab,
-    title: 'Infrastructure',
-    fullTitle: 'Infrastructure Setup',
-    description: 'Connect controller and worker nodes to the wild-cloud',
-    icon: Play,
-    isPhase: true,
-  },
-  {
-    id: 'cluster' as Tab,
-    title: 'Cluster',
-    fullTitle: 'Kubernetes Installation',
-    description: 'Install and configure essential cluster services',
-    icon: Container,
-    isPhase: true,
-  },
-  {
-    id: 'apps' as Tab,
-    title: 'Apps',
-    fullTitle: 'App Management',
-    description: 'Install and manage applications',
-    icon: AppWindow,
-    isPhase: true,
-  },
-  {
-    id: 'advanced' as Tab,
-    title: 'Advanced',
-    fullTitle: 'Advanced Configuration',
-    description: 'Advanced settings and system configuration',
-    icon: Settings,
-    isPhase: false,
-  },
-];
 
 export function AppSidebar({ currentTab, onTabChange, completedPhases }: AppSidebarProps) {
   const { theme, setTheme } = useTheme();
@@ -102,10 +60,9 @@ export function AppSidebar({ currentTab, onTabChange, completedPhases }: AppSide
     }
   };
 
-  const getTabStatus = (tab: Tab, index: number) => {
+  const getTabStatus = (tab: Tab) => {
     // Non-phase tabs (like advanced) are always available
-    const tabData = tabs.find(t => t.id === tab);
-    if (!tabData?.isPhase) {
+    if (tab === 'advanced') {
       return 'available';
     }
     
@@ -115,13 +72,20 @@ export function AppSidebar({ currentTab, onTabChange, completedPhases }: AppSide
     }
     
     // Allow access to the first phase always
-    if (index === 0) {
+    if (tab === 'setup') {
       return 'available';
     }
     
     // Allow access to the next phase if the previous phase is completed
-    const previousTab = tabs[index - 1];
-    if (previousTab?.isPhase && completedPhases.includes(previousTab.id as Phase)) {
+    if (tab === 'infrastructure' && completedPhases.includes('setup')) {
+      return 'available';
+    }
+    
+    if (tab === 'cluster' && completedPhases.includes('infrastructure')) {
+      return 'available';
+    }
+    
+    if (tab === 'apps' && completedPhases.includes('cluster')) {
       return 'available';
     }
     
@@ -147,45 +111,150 @@ export function AppSidebar({ currentTab, onTabChange, completedPhases }: AppSide
           <SidebarGroupLabel>Setup & Management</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {tabs.map((tab, index) => {
-                const status = getTabStatus(tab.id, index);
-                const isActive = currentTab === tab.id;
-                const Icon = tab.icon;
-                
-                return (
-                  <SidebarMenuItem key={tab.id}>
-                    <SidebarMenuButton
-                      isActive={isActive}
-                      onClick={() => status !== 'locked' && onTabChange(tab.id)}
-                      disabled={status === 'locked'}
-                      tooltip={tab.description}
-                      className={cn(
-                        "transition-colors",
-                        status === 'locked' && "opacity-50 cursor-not-allowed"
-                      )}
-                    >
-                      <div className={cn(
-                        "p-1 rounded-md",
-                        isActive && "bg-primary/10",
-                        status === 'locked' && "bg-muted"
-                      )}>
-                        {status === 'locked' ? (
-                          <Lock className="h-4 w-4 text-muted-foreground/50" />
-                        ) : status === 'completed' ? (
-                          <CheckCircle className="h-4 w-4 text-green-600" />
-                        ) : (
-                          <Icon className={cn(
-                            "h-4 w-4",
-                            isActive && "text-primary",
-                            !isActive && "text-muted-foreground"
-                          )} />
-                        )}
-                      </div>
-                      <span className="truncate">{tab.title}</span>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  isActive={currentTab === 'setup'}
+                  onClick={() => {
+                    const status = getTabStatus('setup');
+                    if (status !== 'locked') onTabChange('setup');
+                  }}
+                  disabled={getTabStatus('setup') === 'locked'}
+                  tooltip="Configure the central server and dnsmasq services"
+                  className={cn(
+                    "transition-colors",
+                    getTabStatus('setup') === 'locked' && "opacity-50 cursor-not-allowed"
+                  )}
+                >
+                  <div className={cn(
+                    "p-1 rounded-md",
+                    currentTab === 'setup' && "bg-primary/10",
+                    getTabStatus('setup') === 'locked' && "bg-muted"
+                  )}>
+                    <Server className={cn(
+                      "h-4 w-4",
+                      currentTab === 'setup' && "text-primary",
+                      currentTab !== 'setup' && "text-muted-foreground"
+                    )} />
+                  </div>
+                  <span className="truncate">Central Services</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  isActive={currentTab === 'infrastructure'}
+                  onClick={() => {
+                    const status = getTabStatus('infrastructure');
+                    if (status !== 'locked') onTabChange('infrastructure');
+                  }}
+                  disabled={getTabStatus('infrastructure') === 'locked'}
+                  tooltip="Connect controller and worker nodes to the wild-cloud"
+                  className={cn(
+                    "transition-colors",
+                    getTabStatus('infrastructure') === 'locked' && "opacity-50 cursor-not-allowed"
+                  )}
+                >
+                  <div className={cn(
+                    "p-1 rounded-md",
+                    currentTab === 'infrastructure' && "bg-primary/10",
+                    getTabStatus('infrastructure') === 'locked' && "bg-muted"
+                  )}>
+                    <Play className={cn(
+                      "h-4 w-4",
+                      currentTab === 'infrastructure' && "text-primary",
+                      currentTab !== 'infrastructure' && "text-muted-foreground"
+                    )} />
+                  </div>
+                  <span className="truncate">Cluster Nodes</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  isActive={currentTab === 'cluster'}
+                  onClick={() => {
+                    const status = getTabStatus('cluster');
+                    if (status !== 'locked') onTabChange('cluster');
+                  }}
+                  disabled={getTabStatus('cluster') === 'locked'}
+                  tooltip="Install and configure essential cluster services"
+                  className={cn(
+                    "transition-colors",
+                    getTabStatus('cluster') === 'locked' && "opacity-50 cursor-not-allowed"
+                  )}
+                >
+                  <div className={cn(
+                    "p-1 rounded-md",
+                    currentTab === 'cluster' && "bg-primary/10",
+                    getTabStatus('cluster') === 'locked' && "bg-muted"
+                  )}>
+                    <Container className={cn(
+                      "h-4 w-4",
+                      currentTab === 'cluster' && "text-primary",
+                      currentTab !== 'cluster' && "text-muted-foreground"
+                    )} />
+                  </div>
+                  <span className="truncate">Cluster Services</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  isActive={currentTab === 'apps'}
+                  onClick={() => {
+                    const status = getTabStatus('apps');
+                    if (status !== 'locked') onTabChange('apps');
+                  }}
+                  disabled={getTabStatus('apps') === 'locked'}
+                  tooltip="Install and manage applications"
+                  className={cn(
+                    "transition-colors",
+                    getTabStatus('apps') === 'locked' && "opacity-50 cursor-not-allowed"
+                  )}
+                >
+                  <div className={cn(
+                    "p-1 rounded-md",
+                    currentTab === 'apps' && "bg-primary/10",
+                    getTabStatus('apps') === 'locked' && "bg-muted"
+                  )}>
+                    <AppWindow className={cn(
+                      "h-4 w-4",
+                      currentTab === 'apps' && "text-primary",
+                      currentTab !== 'apps' && "text-muted-foreground"
+                    )} />
+                  </div>
+                  <span className="truncate">Apps</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  isActive={currentTab === 'advanced'}
+                  onClick={() => {
+                    const status = getTabStatus('advanced');
+                    if (status !== 'locked') onTabChange('advanced');
+                  }}
+                  disabled={getTabStatus('advanced') === 'locked'}
+                  tooltip="Advanced settings and system configuration"
+                  className={cn(
+                    "transition-colors",
+                    getTabStatus('advanced') === 'locked' && "opacity-50 cursor-not-allowed"
+                  )}
+                >
+                  <div className={cn(
+                    "p-1 rounded-md",
+                    currentTab === 'advanced' && "bg-primary/10",
+                    getTabStatus('advanced') === 'locked' && "bg-muted"
+                  )}>
+                    <Settings className={cn(
+                      "h-4 w-4",
+                      currentTab === 'advanced' && "text-primary",
+                      currentTab !== 'advanced' && "text-muted-foreground"
+                    )} />
+                  </div>
+                  <span className="truncate">Advanced</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

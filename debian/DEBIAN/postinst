@@ -31,6 +31,7 @@ case "$1" in
         # Set ownership of dnsmasq.conf if it exists
         if [ -f /etc/dnsmasq.conf ]; then
             chown wildcloud:wildcloud /etc/dnsmasq.conf
+            # TODO: /etc/dnsmasq.d/wild-cloud.conf
         fi
 
         # Install sudoers file

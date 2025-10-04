@@ -5,9 +5,44 @@ This guide covers development, testing, and local building of Wild Cloud Central
 ## Development Setup
 
 ### Prerequisites
+
 - Go 1.21+
 - Docker (for testing)
 - make
+
+```bash
+sudo apt update
+sudo apt install make direnv
+
+# Node.js and pnpm setup
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash
+source $HOME/.bashrc
+nvm install --lts
+
+curl -fsSL https://get.pnpm.io/install.sh | sh -
+source $HOME/.bashrc
+pnpm install -g @anthropic-ai/claude-code
+
+# Golang setup
+wget https://go.dev/dl/go1.24.5.linux-arm64.tar.gz
+sudo tar -C /usr/local -xzf ./go1.24.5.linux-arm64.tar.gz
+echo 'export PATH="$PATH:/usr/local/go/bin"' >> $HOME/.bashrc
+rm ./go1.24.5.linux-arm64.tar.gz
+source $HOME/.bashrc
+go install -v github.com/go-delve/delve/cmd/dlv@latest
+
+# Python setup
+curl -LsSf https://astral.sh/uv/install.sh | sh
+source $HOME/.local/bin/env
+uv sync
+
+# App
+cd app && pnpm install && cd ..
+# Daemon
+cd daemon && go mod tidy && cd ..
+# CLI
+cd cli && go mod tidy && cd ..
+```
 
 ### Building Locally
 

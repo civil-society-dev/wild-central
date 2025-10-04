@@ -11,7 +11,9 @@ This document describes the architecture and tooling used to build the Wild App,
 - Use TypeScript for type safety.
 
 ### Tooling
+## Dev Environment Requirements
 
+- Node.js 20+
 - pnpm for package management
 - vite for build tooling
 - React + TypeScript

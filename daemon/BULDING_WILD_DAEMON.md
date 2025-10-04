@@ -1,13 +1,18 @@
 # Building the Wild Cloud Central Daemon
 
-## Philosophy
+## Dev Environment Requirements
 
+- Go 1.21+
+- GNU Make (for build automation)
+
+## Principles
+
+- A wild cloud instance is primarily data (YAML files for config, secrets, and manifests).
+- Because a wild cloud instance is primarily data, a wild cloud instance can be managed by non-technical users through the webapp or by technical users by SSHing into the device (e.g. VSCode Remote SSH).
 - Like v.PoC, we should only use gomplate templates for distinguishing between cloud instances. However, **within** a cloud instance, there should be no templating. The templates are compiled when being copied into the instances. This allows transparency and simple management by the user.
 - Manage state and infrastructure idempotently.
 - Cluster state should be the k8s cluster itself, not local files. It should be accesses via kubectl and talosctl.
 - All wild cloud state should be stored on the filesystem in easy to read YAML files, and can be edited directly or through the webapp.
-
-- Use talosctl and kubectl wherever possible to leverage existing tools and avoid reinventing the wheel.
 - All code should be simple and easy to understand.
   - Avoid unnecessary complexity.
   - Avoid unnecessary dependencies.
@@ -23,7 +28,7 @@
   - Wild Cloud Apps Directory provider (local FS, git repo, etc)
   - DNS (built-in dnsmasq, external DNS server, etc)
 
-### Coding
+### Coding Standards
 
 - Use a standard Go project structure.
 - Use Go modules.

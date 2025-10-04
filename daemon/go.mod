@@ -1,6 +1,6 @@
 module github.com/wild-cloud/wild-central/daemon
 
-go 1.21
+go 1.22
 
 require (
 	github.com/gorilla/mux v1.8.1

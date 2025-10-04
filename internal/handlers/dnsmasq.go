@@ -12,7 +12,7 @@ func (app *App) GetDnsmasqConfigHandler(w http.ResponseWriter, r *http.Request) 
 		http.Error(w, "No configuration available. Please configure the system first.", http.StatusPreconditionFailed)
 		return
 	}
-	
+
 	config := app.DnsmasqManager.Generate(app.Config)
 	w.Header().Set("Content-Type", "text/plain")
 	w.Write([]byte(config))

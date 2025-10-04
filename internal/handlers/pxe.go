@@ -33,7 +33,7 @@ func (app *App) downloadTalosAssets() error {
 	// Get assets directory from data paths
 	paths := app.DataManager.GetPaths()
 	assetsDir := filepath.Join(paths.AssetsDir, "talos")
-	
+
 	log.Printf("Downloading Talos assets to: %s", assetsDir)
 	if err := os.MkdirAll(filepath.Join(assetsDir, "amd64"), 0755); err != nil {
 		return fmt.Errorf("creating assets directory: %w", err)
@@ -93,7 +93,7 @@ boot
 		return fmt.Errorf("writing boot script: %w", err)
 	}
 
-	// Download iPXE bootloaders  
+	// Download iPXE bootloaders
 	tftpDir := filepath.Join(paths.AssetsDir, "tftp")
 	if err := os.MkdirAll(tftpDir, 0755); err != nil {
 		return fmt.Errorf("creating tftp directory: %w", err)

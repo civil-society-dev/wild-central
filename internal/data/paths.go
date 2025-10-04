@@ -32,7 +32,7 @@ func NewManager() *Manager {
 func (m *Manager) Initialize() error {
 	// Detect environment: development vs production
 	m.isDev = m.isDevelopmentMode()
-	
+
 	var dataDir string
 	if m.isDev {
 		// Development mode: use .wildcloud in current directory
@@ -47,19 +47,19 @@ func (m *Manager) Initialize() error {
 		dataDir = "/var/lib/wild-cloud-central"
 		log.Printf("Running in production mode, using data directory: %s", dataDir)
 	}
-	
+
 	m.dataDir = dataDir
-	
+
 	// Create directory structure
 	paths := m.GetPaths()
-	
+
 	// Create all necessary directories
 	for _, dir := range []string{paths.DataDir, paths.LogsDir, paths.AssetsDir} {
 		if err := os.MkdirAll(dir, 0755); err != nil {
 			return fmt.Errorf("failed to create directory %s: %w", dir, err)
 		}
 	}
-	
+
 	log.Printf("Data directory structure initialized at: %s", dataDir)
 	return nil
 }
@@ -67,17 +67,17 @@ func (m *Manager) Initialize() error {
 // isDevelopmentMode detects if we're running in development mode
 func (m *Manager) isDevelopmentMode() bool {
 	// Check multiple indicators for development mode
-	
+
 	// 1. Check if GO_ENV is set to development
 	if env := os.Getenv("GO_ENV"); env == "development" {
 		return true
 	}
-	
+
 	// 2. Check if running as systemd service (has INVOCATION_ID)
 	if os.Getenv("INVOCATION_ID") != "" {
 		return false // Running under systemd
 	}
-	
+
 	// 3. Check if running from a typical development location
 	if exe, err := os.Executable(); err == nil {
 		// If executable is in current directory or contains "wild-central" without being in /usr/bin
@@ -88,12 +88,12 @@ func (m *Manager) isDevelopmentMode() bool {
 			return true
 		}
 	}
-	
+
 	// 4. Check if we can write to /var/lib (if not, probably development)
 	if _, err := os.Stat("/var/lib"); err != nil {
 		return true
 	}
-	
+
 	// 5. Default to development if uncertain
 	return true
 }

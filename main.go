@@ -54,7 +54,7 @@ func main() {
 func setupRoutes(app *handlers.App, router *mux.Router) {
 	// Add CORS middleware
 	router.Use(app.CORSMiddleware)
-	
+
 	// API v1 routes
 	router.HandleFunc("/api/v1/health", app.HealthHandler).Methods("GET")
 	router.HandleFunc("/api/v1/config", app.GetConfigHandler).Methods("GET")
@@ -65,7 +65,7 @@ func setupRoutes(app *handlers.App, router *mux.Router) {
 	router.HandleFunc("/api/v1/dnsmasq/config", app.GetDnsmasqConfigHandler).Methods("GET")
 	router.HandleFunc("/api/v1/dnsmasq/restart", app.RestartDnsmasqHandler).Methods("POST")
 	router.HandleFunc("/api/v1/pxe/assets", app.DownloadPXEAssetsHandler).Methods("POST")
-	
+
 	// UI-specific endpoints
 	router.HandleFunc("/api/status", app.StatusHandler).Methods("GET")
 

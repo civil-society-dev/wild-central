@@ -11,9 +11,9 @@ import (
 // Config represents the main configuration structure
 type Config struct {
 	Wildcloud struct {
-		Repository       string   `yaml:"repository" json:"repository"`
-		CurrentPhase     string   `yaml:"currentPhase" json:"currentPhase"`
-		CompletedPhases  []string `yaml:"completedPhases" json:"completedPhases"`
+		Repository      string   `yaml:"repository" json:"repository"`
+		CurrentPhase    string   `yaml:"currentPhase" json:"currentPhase"`
+		CompletedPhases []string `yaml:"completedPhases" json:"completedPhases"`
 	} `yaml:"wildcloud" json:"wildcloud"`
 	Server struct {
 		Port int    `yaml:"port" json:"port"`
@@ -86,9 +86,9 @@ func (c *Config) IsEmpty() bool {
 	if c == nil {
 		return true
 	}
-	
+
 	// Check if any essential fields are empty
-	return c.Cloud.Domain == "" || 
-		   c.Cloud.DNS.IP == "" ||
-		   c.Cluster.Nodes.Talos.Version == ""
+	return c.Cloud.Domain == "" ||
+		c.Cloud.DNS.IP == "" ||
+		c.Cluster.Nodes.Talos.Version == ""
 }

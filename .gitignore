@@ -1,73 +1,25 @@
-# Build artifacts
-build/
-dist/
-.working/
-wild-central
+# Amplifier
+amplifier/
 
-# Go build cache
-*.o
-*.a
-*.so
-__debug*
+# Python artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.venv/
+uv.lock
 
-# Test binary, built with `go test -c`
-*.test
-
-# Output of the go coverage tool
-*.out
-
-# Go workspace file
-go.work
-
-# IDE files
+# VSCode
 .vscode/
-.idea/
-*.swp
-*.swo
-*~
+*.code-workspace
 
-# OS files
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
+# Claude AI configuration
+.claude/
 
-# Logs
-*.log
+# Temporary ignore until we get things sorted
+data/
 
-# Runtime data
-pids
-*.pid
-*.seed
-*.pid.lock
+# Development working dir
+.working/
 
-# Cache directories
-.cache/
-*.cache
-
-# Development data directory
-.wildcloud/
-
-# Temporary files
-tmp/
-temp/
-.tmp/
-
-# Docker
-.dockerignore
-
-# Environment files
-.env
-.env.local
-.env.*.local
-
-# Backup files
-*.bak
-*.backup
-*.orig
-
-.claude
-
+__debug*

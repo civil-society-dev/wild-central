@@ -1,8 +1,12 @@
-# Building the Wild Cloud Central App
+# Building Wild Cloud Central
 
 The first version of Wild Cloud, the Proof of Concept version (v.PoC), was built as a collection of shell scripts that users would run from their local machines. This works well for early adopters who are comfortable with the command line, Talos, and Kubernetes.
 
-To make Wild Cloud more accessible to a broader audience, we are developing the Wild Cloud Central (Central). Central will deliver a web app hosted on a single-purpose device (like a Raspberry Pi or Intel NUC) within the user's network. It will provide a web-based interface for setting up and managing the Wild Cloud cluster and applications.
+To make Wild Cloud more accessible to a broader audience, we are developing Wild Central. Central is a single-purpose machine run on a LAN that will deliver:
+
+- Wild Daemon: A lightweight service that runs on a local machine (e.g., a Raspberry Pi) to manage Wild Cloud instances on the local network.
+- Wild App: A web-based interface (to Wild Daemon) for managing Wild Cloud instances.
+- Wild CLI: A command-line interface (to Wild Daemon) for advanced users who prefer to manage Wild Cloud from the terminal.
 
 ## Background info
 
@@ -38,7 +42,7 @@ To make Wild Cloud more accessible to a broader audience, we are developing the 
 
 ### New Wild Central Architecture
 
-#### wildd: The Wild Cloud Central Daemon
+#### wildd: The Wild Cloud Daemon
 
 wildd is a long-running service that provides an API and web interface for managing one or more Wild Cloud clusters. It runs on a dedicated device within the user's network.
 
@@ -46,13 +50,13 @@ wildd replaces functionality from the v.PoC scripts and the dnsmasq server. It i
 
 Both wild-app and wild-cli communicate with wildd to perform actions.
 
-See: @experimental/ai/BUILDING_WILD_CENTRAL_DAEMON.md
+See: @daemon/BUILDING_WILD_DAEMON.md
 
 #### wild-app
 
-The web application that provides the user interface for Wild Cloud Central. It communicates with wildd to perform actions and display information.
+The web application that provides the user interface for Wild Cloud on Wild Central. It communicates with wildd to perform actions and display information.
 
-See: @experimental/ai/BUILDING_WILD_CENTRAL_APP.md
+See: @/app/BUILDING_WILD_APP.md
 
 #### wild-cli
 
@@ -64,9 +68,15 @@ Mirrors all of the wild-* scripts from v.PoC, but adapted for the new architectu
 - Wrapper around wildd API instead of direct file manipulation.
 - Multi-cloud: v.PoC scripts set the instance context with WC_HOME environment variable. In Central, wild-cli follows the "context" pattern like kubectl and talosctl, using `--context` or `WILD_CONTEXT` to select which wild cloud instance to manage, or defaulting to the "current" context.
 
-#### Wild Cloud Configs
+See: @cli/BUILDING_WILD_CLI.md
 
-Replaces multiple WC_HOMEs. All wild clouds managed on the LAN are configured here, in one place. These are still in easy to read YAML files and can be edited directly or through the webapp.
+#### Wild Central Data
+
+Configured with $WILD_CENTRAL_DATA environment variable (default: /var/lib/wild-central).
+
+Replaces multiple WC_HOMEs. All wild clouds managed on the LAN are configured here. These are still in easy to read YAML format and can be edited directly or through the webapp.
+
+Wild Central data also holds the local app directory, logs, and artifacts, and overall state data.
 
 #### Wild Cloud Apps Directory
 

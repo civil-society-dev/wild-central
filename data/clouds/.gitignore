@@ -1,0 +1,4 @@
+secrets.yaml
+.kubeconfig
+*/setup/cluster-nodes/final/
+*/setup/cluster-nodes/generated/

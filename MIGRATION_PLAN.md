@@ -11,6 +11,8 @@ This document outlines the comprehensive migration plan from the bash-based Wild
 - **File-based operations** → **API-driven** with file storage backend
 - **Local context** → **Multi-cloud context** switching
 
+This is a large migration. Progress on the migration will be tracked in @MIGRATION_PROGRESS.md. We will update this document as we find plan changes necessary as we go.
+
 ---
 
 ## Table of Contents
@@ -1988,45 +1990,1030 @@ var operations = sync.Map{}
 
 ---
 
-## Success Metrics
+## Idempotency & 1:1 Bash Script Correspondence
 
-### Phase 1 Success
-- [ ] Can manage 5+ instances simultaneously
-- [ ] Config operations complete in < 100ms
-- [ ] Template processing works for all existing apps
-- [ ] Context switching works seamlessly
+**CRITICAL:** The Go daemon implementation must maintain exact 1:1 correspondence with bash script behavior, including idempotency patterns and progress tracking. Every bash script operation must have an equivalent daemon method that produces identical results.
 
-### Phase 2 Success
-- [ ] Node discovery finds nodes in < 30 seconds
-- [ ] Hardware detection is accurate
-- [ ] Node setup completes successfully
-- [ ] Async operations track correctly
+### Principles
 
-### Phase 3 Success
-- [ ] Cluster bootstraps in < 10 minutes
-- [ ] All health checks pass
-- [ ] kubectl commands work correctly
-- [ ] Supports 3-5 node clusters
+1. **Exact Command Correspondence**: Each bash script command sequence must map to daemon methods that execute the same external commands in the same order
+2. **Idempotency Preservation**: Operations must be safely repeatable, checking state before acting
+3. **Progress Tracking**: Multi-step operations must track completion and support resume from failure
+4. **State Consistency**: File system state, configuration keys, and cluster state must match bash script expectations
 
-### Phase 4 Success
-- [ ] All core services install successfully
-- [ ] Service dependencies resolve correctly
-- [ ] Certificates are issued automatically
-- [ ] Services are accessible via ingress
+### Idempotency Patterns from v.PoC
 
-### Phase 5 Success
-- [ ] Can deploy all existing apps from v.PoC
-- [ ] App dependencies work correctly
-- [ ] Apps are accessible via configured domains
-- [ ] App status reflects actual state
+#### Pattern 1: Configuration Key Existence Checks
 
-### Overall Success
-- [ ] Complete feature parity with v.PoC bash scripts
-- [ ] wild-cli provides all functionality
-- [ ] wild-app provides intuitive UI
-- [ ] Can manage multiple clusters from single daemon
-- [ ] Setup time comparable to v.PoC
-- [ ] No regressions in functionality
+**Bash Pattern:**
+```bash
+if wild-config --check "cluster.nodes.active.${NODE_NAME}.interface"; then
+    print_success "Node $NODE_NAME already configured"
+    # Skip or update
+else
+    # Detect and configure
+fi
+```
+
+**Go Implementation:**
+```go
+type StateManager struct {
+    configPath string
+    mu sync.RWMutex
+}
+
+func (s *StateManager) KeyExists(path string) bool {
+    // Check YAML key existence
+}
+
+func (s *StateManager) GetKey(path string) (string, error) {
+    // Read YAML value at path
+}
+```
+
+#### Pattern 2: File/Directory Existence Guards
+
+**Bash Pattern:**
+```bash
+if [ -f "${NODE_SETUP_DIR}/generated/secrets.yaml" ]; then
+    print_success "Cluster configuration already exists"
+    return 0
+fi
+```
+
+**Go Implementation:**
+```go
+type FileSystemChecker struct {
+    wcHome string
+}
+
+func (f *FileSystemChecker) ClusterInitialized() bool {
+    secretsPath := filepath.Join(f.wcHome,
+        "setup/cluster-nodes/generated/secrets.yaml")
+    return fileExists(secretsPath)
+}
+```
+
+#### Pattern 3: Kubernetes Resource Existence
+
+**Bash Pattern:**
+```bash
+HAS_CONTEXT=$(talosctl config contexts | grep -c "$CLUSTER_NAME" || true)
+if [ "$HAS_CONTEXT" -eq 0 ]; then
+    talosctl config merge ${WC_HOME}/setup/cluster-nodes/generated/talosconfig
+fi
+```
+
+**Go Implementation:**
+```go
+func (t *TalosctlWrapper) HasContext(clusterName string) (bool, error) {
+    output, err := t.exec("config", "contexts")
+    return strings.Contains(output, clusterName), err
+}
+
+func (t *TalosctlWrapper) EnsureContext(clusterName, configPath string) error {
+    if has, _ := t.HasContext(clusterName); has {
+        return nil // Already exists
+    }
+    return t.exec("config", "merge", configPath)
+}
+```
+
+#### Pattern 4: Delete-and-Recreate for Jobs
+
+**Bash Pattern:**
+```bash
+# Ensure idempotent job execution
+kubectl delete job immich-db-init --namespace="${APP_NAME}" --ignore-not-found=true
+kubectl wait --for=delete job/immich-db-init --namespace="${APP_NAME}" --timeout=30s || true
+# Then create job
+kubectl apply -f db-init-job.yaml
+```
+
+**Go Implementation:**
+```go
+func (k *KubectlWrapper) RecreateJob(namespace, name, manifestPath string) error {
+    // Delete existing job
+    if err := k.Delete("job", name, namespace, true); err != nil {
+        return err
+    }
+
+    // Wait for deletion
+    ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+    defer cancel()
+    k.WaitForDelete(ctx, "job", name, namespace)
+
+    // Apply new job
+    return k.Apply(manifestPath)
+}
+```
+
+### Progress Tracking System
+
+#### Phase Tracking Model
+
+```go
+type Phase string
+
+const (
+    PhaseSetup         Phase = "setup"
+    PhaseInfrastructure Phase = "infrastructure"
+    PhaseCluster       Phase = "cluster"
+    PhaseServices      Phase = "services"
+    PhaseApps          Phase = "apps"
+)
+
+type ProgressTracker struct {
+    CurrentPhase    Phase             `yaml:"currentPhase"`
+    CompletedPhases []Phase           `yaml:"completedPhases"`
+    StepProgress    map[string]int    `yaml:"stepProgress"`    // step -> completion %
+    LastError       string            `yaml:"lastError,omitempty"`
+    UpdatedAt       time.Time         `yaml:"updatedAt"`
+}
+
+func (p *ProgressTracker) IsPhaseComplete(phase Phase) bool {
+    for _, completed := range p.CompletedPhases {
+        if completed == phase {
+            return true
+        }
+    }
+    return false
+}
+
+func (p *ProgressTracker) MarkPhaseComplete(phase Phase) {
+    if !p.IsPhaseComplete(phase) {
+        p.CompletedPhases = append(p.CompletedPhases, phase)
+    }
+}
+```
+
+#### Operation State Tracking (for API/UI feedback only)
+
+**Important:** Operation state is for UI progress display only, not for resumption logic. Idempotency handles resumption automatically.
+
+```go
+type OperationState struct {
+    ID          string                 `json:"id"`
+    Type        string                 `json:"type"`     // "cluster.bootstrap", "app.deploy", etc.
+    Instance    string                 `json:"instance"`
+    Status      string                 `json:"status"`   // "running", "completed", "failed"
+    Progress    int                    `json:"progress"` // 0-100 (for UI display)
+    Message     string                 `json:"message"`  // Current step description
+    StartedAt   time.Time              `json:"startedAt"`
+    UpdatedAt   time.Time              `json:"updatedAt"`
+    CompletedAt *time.Time             `json:"completedAt,omitempty"`
+    Error       string                 `json:"error,omitempty"`
+    Logs        []string               `json:"logs"`     // Recent log lines for UI
+}
+
+// Save for daemon restart recovery (so UI can show operation status)
+func (o *OperationState) Save(dataDir string) error {
+    path := filepath.Join(dataDir, "operations", o.ID+".json")
+    return writeJSON(path, o)
+}
+
+// Note: If daemon restarts during operation, the operation will fail.
+// User simply re-runs the same command - idempotency handles the rest.
+```
+
+### Progressive Waiting with Restarts
+
+**Bash Pattern:**
+```bash
+# Wait for API server with periodic kubelet restarts
+print_info -n "Waiting for API server to respond on VIP."
+max_attempts=60
+for attempt in $(seq 1 $max_attempts); do
+    if curl -k -s --max-time 5 "https://$vip:6443/healthz" >/dev/null 2>&1; then
+        print_success "API server responding"
+        break
+    fi
+    # Restart kubelet every 15 attempts
+    if [ $((attempt % 15)) -eq 0 ]; then
+        talosctl -n "$TARGET_IP" service kubelet restart > /dev/null 2>&1
+        sleep 30
+    fi
+    printf "."
+    sleep 10
+done
+```
+
+**Go Implementation:**
+```go
+type ProgressiveWaiter struct {
+    checkFunc     func() error
+    maxAttempts   int
+    checkInterval time.Duration
+    restartAt     []int                    // Attempt numbers for restart
+    restartFunc   func() error
+    restartDelay  time.Duration
+}
+
+func (w *ProgressiveWaiter) Wait(ctx context.Context) error {
+    for attempt := 1; attempt <= w.maxAttempts; attempt++ {
+        select {
+        case <-ctx.Done():
+            return ctx.Err()
+        default:
+        }
+
+        // Try check
+        if err := w.checkFunc(); err == nil {
+            return nil // Success
+        }
+
+        // Check if we should restart service
+        for _, restartAttempt := range w.restartAt {
+            if attempt == restartAttempt {
+                log.Printf("Attempt %d: Restarting service...", attempt)
+                if err := w.restartFunc(); err != nil {
+                    log.Printf("Restart failed: %v", err)
+                }
+                time.Sleep(w.restartDelay)
+                break
+            }
+        }
+
+        time.Sleep(w.checkInterval)
+    }
+
+    return fmt.Errorf("check failed after %d attempts", w.maxAttempts)
+}
+
+// Example usage matching bash behavior:
+waiter := &ProgressiveWaiter{
+    checkFunc: func() error {
+        return checkAPIServer(vip)
+    },
+    maxAttempts:   60,
+    checkInterval: 10 * time.Second,
+    restartAt:     []int{15, 30, 45}, // Restart at these attempts
+    restartFunc: func() error {
+        return talosctl.RestartService(targetIP, "kubelet")
+    },
+    restartDelay: 30 * time.Second,
+}
+```
+
+### Idempotent Operation Interface
+
+```go
+type IdempotentOperation interface {
+    // Check if prerequisites are met
+    CheckPreconditions(ctx context.Context) error
+
+    // Check if operation is already complete
+    IsAlreadyComplete(ctx context.Context) (bool, error)
+
+    // Execute the operation
+    Execute(ctx context.Context) error
+
+    // Validate the result
+    Validate(ctx context.Context) error
+
+    // Rollback if needed
+    Rollback(ctx context.Context) error
+}
+
+// Example implementation
+type ClusterBootstrapOperation struct {
+    instance     string
+    firstNode    string
+    vip          string
+    stateManager *StateManager
+    talosctl     *TalosctlWrapper
+    kubectl      *KubectlWrapper
+}
+
+func (op *ClusterBootstrapOperation) IsAlreadyComplete(ctx context.Context) (bool, error) {
+    // Check if kubeconfig exists and API server responds
+    kubeconfigPath := op.stateManager.GetKubeconfigPath(op.instance)
+    if !fileExists(kubeconfigPath) {
+        return false, nil
+    }
+
+    // Test API server
+    if err := op.kubectl.ServerVersion(); err == nil {
+        return true, nil // Already bootstrapped
+    }
+
+    return false, nil
+}
+```
+
+### External Command Execution Tracking
+
+```go
+type CommandLogger struct {
+    operationID string
+    logFile     *os.File
+}
+
+func (c *CommandLogger) ExecWithLog(name string, args ...string) (string, error) {
+    // Log exact command
+    cmdStr := fmt.Sprintf("%s %s", name, strings.Join(args, " "))
+    c.log("EXEC: %s", cmdStr)
+
+    cmd := exec.Command(name, args...)
+
+    // Capture output
+    output, err := cmd.CombinedOutput()
+    outputStr := string(output)
+
+    if err != nil {
+        c.log("ERROR: %v\nOutput: %s", err, outputStr)
+        return outputStr, fmt.Errorf("command failed: %w\nOutput: %s", err, outputStr)
+    }
+
+    c.log("SUCCESS: %s", outputStr)
+    return outputStr, nil
+}
+
+func (c *CommandLogger) log(format string, args ...interface{}) {
+    timestamp := time.Now().Format("2006-01-02 15:04:05")
+    line := fmt.Sprintf("[%s] "+format+"\n", append([]interface{}{timestamp}, args...)...)
+    c.logFile.WriteString(line)
+}
+```
+
+### Configuration Prompting Pattern
+
+**Bash Pattern:**
+```bash
+prompt_if_unset_config() {
+    local key="$1"
+    local prompt="$2"
+    local default="${3:-}"
+
+    if wild-config --check "$key"; then
+        print_info "Using existing $key"
+        return
+    fi
+
+    read -p "$prompt [${default}]: " value
+    value="${value:-$default}"
+    wild-config-set "$key" "$value"
+}
+```
+
+**Go Implementation:**
+```go
+type ConfigPrompter struct {
+    stateManager *StateManager
+    interactive  bool
+    defaults     map[string]string
+}
+
+func (p *ConfigPrompter) PromptIfUnset(key, prompt, defaultVal string) (string, error) {
+    // Check if already set
+    if exists := p.stateManager.KeyExists(key); exists {
+        val, _ := p.stateManager.GetKey(key)
+        log.Printf("Using existing %s = %s", key, val)
+        return val, nil
+    }
+
+    // Use default in non-interactive mode
+    if !p.interactive {
+        if defaultVal != "" {
+            p.stateManager.SetKey(key, defaultVal)
+            return defaultVal, nil
+        }
+        return "", fmt.Errorf("key %s not set and no default provided", key)
+    }
+
+    // Interactive prompt
+    fmt.Printf("%s [%s]: ", prompt, defaultVal)
+    reader := bufio.NewReader(os.Stdin)
+    input, _ := reader.ReadString('\n')
+    value := strings.TrimSpace(input)
+
+    if value == "" {
+        value = defaultVal
+    }
+
+    p.stateManager.SetKey(key, value)
+    return value, nil
+}
+```
+
+### State Validation
+
+```go
+type StateValidator struct {
+    wcHome       string
+    stateManager *StateManager
+}
+
+func (v *StateValidator) ValidatePhaseComplete(phase Phase) error {
+    switch phase {
+    case PhaseSetup:
+        return v.validateSetupPhase()
+    case PhaseInfrastructure:
+        return v.validateInfrastructurePhase()
+    case PhaseCluster:
+        return v.validateClusterPhase()
+    case PhaseServices:
+        return v.validateServicesPhase()
+    case PhaseApps:
+        return v.validateAppsPhase()
+    }
+    return fmt.Errorf("unknown phase: %s", phase)
+}
+
+func (v *StateValidator) validateClusterPhase() error {
+    // Check secrets exist
+    if !fileExists(filepath.Join(v.wcHome, "setup/cluster-nodes/generated/secrets.yaml")) {
+        return fmt.Errorf("cluster secrets not generated")
+    }
+
+    // Check kubeconfig exists
+    if !fileExists(filepath.Join(v.wcHome, ".kube/config")) {
+        return fmt.Errorf("kubeconfig not found")
+    }
+
+    // Check required config keys
+    requiredKeys := []string{
+        "cluster.name",
+        "cluster.nodes.control.vip",
+    }
+
+    for _, key := range requiredKeys {
+        if !v.stateManager.KeyExists(key) {
+            return fmt.Errorf("required config key missing: %s", key)
+        }
+    }
+
+    return nil
+}
+```
+
+### Bash-to-Go Command Mapping
+
+| Bash Script | Go Package | Key Methods | Idempotency Check |
+|------------|------------|-------------|-------------------|
+| `wild-init` | `domain/instance` | `CreateInstance()` | Check `.wildcloud/` marker |
+| `wild-config` | `domain/instance/config` | `GetConfig(path)` | Direct YAML read |
+| `wild-config-set` | `domain/instance/config` | `SetConfig(path, value)` | Atomic write with backup |
+| `wild-cluster-config-generate` | `domain/cluster` | `GenerateConfig()` | Check `generated/secrets.yaml` |
+| `wild-node-setup` | `domain/node` | `SetupNode(name)` | Check node config keys + final/*.yaml |
+| `wild-setup-cluster` | `domain/cluster` | `BootstrapCluster()` | Check kubeconfig + API response |
+| `wild-setup-services` | `domain/service` | `InstallServices()` | Check pod status per service |
+| `wild-app-add` | `domain/app` | `ConfigureApp(name)` | Check `apps/{name}/manifest.yaml` |
+| `wild-app-deploy` | `domain/app` | `DeployApp(name)` | Check deployment status |
+
+### Testing Requirements for 1:1 Correspondence
+
+**Important:** The bash v.PoC scripts have no integration tests, so validation must be done through:
+- Manual verification against real Talos/Kubernetes clusters
+- State inspection of files and configuration
+- Behavioral observation of actual operations
+- Side-by-side manual testing when needed
+
+#### 1. State-Based Validation Tests
+
+Verify operations produce the expected file system state and configuration:
+
+```go
+func TestClusterBootstrapState(t *testing.T) {
+    instance := "test-cluster"
+
+    // Bootstrap cluster
+    err := cluster.Bootstrap(ctx, instance)
+    require.NoError(t, err)
+
+    wcHome := getInstancePath(instance)
+
+    // Verify expected files exist at correct paths
+    assertFileExists(t, filepath.Join(wcHome, "setup/cluster-nodes/generated/secrets.yaml"))
+    assertFileExists(t, filepath.Join(wcHome, "setup/cluster-nodes/generated/controlplane.yaml"))
+    assertFileExists(t, filepath.Join(wcHome, "setup/cluster-nodes/generated/worker.yaml"))
+    assertFileExists(t, filepath.Join(wcHome, "setup/cluster-nodes/generated/talosconfig"))
+    assertFileExists(t, filepath.Join(wcHome, ".kube/config"))
+
+    // Verify config keys were set (matches bash behavior)
+    assertConfigKeyExists(t, instance, "cluster.name")
+    assertConfigKeyExists(t, instance, "cluster.nodes.control.vip")
+
+    // Verify secrets.yaml has correct permissions
+    info, err := os.Stat(filepath.Join(wcHome, "secrets.yaml"))
+    require.NoError(t, err)
+    assert.Equal(t, os.FileMode(0600), info.Mode().Perm())
+
+    // Verify kubeconfig is valid and API server responds
+    kubectl := NewKubectlWrapper(instance)
+    _, err = kubectl.ServerVersion()
+    assert.NoError(t, err, "API server should be accessible")
+}
+```
+
+#### 2. Idempotency Tests
+
+Verify operations can be run multiple times safely:
+
+```go
+func TestClusterBootstrapIdempotency(t *testing.T) {
+    instance := "test-cluster"
+
+    // Bootstrap once
+    err := cluster.Bootstrap(ctx, instance)
+    require.NoError(t, err)
+
+    // Capture initial state
+    state1 := captureInstanceState(instance)
+
+    // Bootstrap again - should be no-op
+    err = cluster.Bootstrap(ctx, instance)
+    assert.NoError(t, err)
+
+    // Capture state after second run
+    state2 := captureInstanceState(instance)
+
+    // States should be identical (no duplicate resources)
+    assert.Equal(t, state1, state2)
+
+    // Verify no duplicate Kubernetes resources
+    nodes, _ := kubectl.GetNodes()
+    assert.Equal(t, 3, len(nodes), "Should still have 3 nodes, not 6")
+}
+
+func captureInstanceState(instance string) map[string]interface{} {
+    return map[string]interface{}{
+        "config":     readYAML(getConfigPath(instance)),
+        "secrets":    getSecretKeys(instance), // Don't expose values
+        "files":      listFiles(getInstancePath(instance)),
+        "k8s_nodes":  countKubernetesNodes(instance),
+        "k8s_pods":   countKubernetesPods(instance),
+    }
+}
+```
+
+#### 3. Automatic Resume via Idempotency Tests
+
+**Important:** True idempotency means no explicit "resume" logic is needed. If an operation fails, just re-run it - the idempotency checks will skip completed steps automatically.
+
+Verify that re-running after failure continues correctly:
+
+```go
+func TestClusterBootstrapReRunAfterFailure(t *testing.T) {
+    instance := "test-cluster"
+
+    // Simulate partial completion (e.g., secrets generated but cluster not bootstrapped)
+    setupPartialClusterState(instance)
+
+    // First attempt - will complete remaining steps
+    err := cluster.Bootstrap(ctx, instance)
+    require.NoError(t, err)
+
+    // Verify it detected existing state and skipped completed steps
+    // (secrets generation would be skipped, bootstrap would execute)
+    assertFileExists(t, wcHome+"/setup/cluster-nodes/generated/secrets.yaml")
+    assertAPIServerResponds(t, instance)
+}
+
+func TestIdempotentStepSkipping(t *testing.T) {
+    instance := "test-cluster"
+
+    // Complete bootstrap
+    err := cluster.Bootstrap(ctx, instance)
+    require.NoError(t, err)
+
+    // Track which external commands are executed on second run
+    commandLog := captureCommandLog()
+
+    // Run again - should skip all steps
+    err = cluster.Bootstrap(ctx, instance)
+    require.NoError(t, err)
+
+    // Verify no kubectl/talosctl commands were executed
+    // (all checks returned "already complete")
+    assert.Empty(t, commandLog.Commands, "Should not execute any commands when already complete")
+}
+```
+
+**Design Principle:** Instead of explicit "resume from step N" logic, each step checks:
+1. Is my prerequisite complete? (idempotency check)
+2. If yes, skip
+3. If no, execute
+
+Example:
+```go
+func (b *ClusterBootstrap) Execute(ctx context.Context) error {
+    // Step 1: Generate secrets
+    if !fileExists(b.secretsPath) {
+        if err := b.generateSecrets(); err != nil {
+            return err
+        }
+    }
+
+    // Step 2: Bootstrap etcd
+    if !b.isEtcdHealthy() {
+        if err := b.bootstrapEtcd(); err != nil {
+            return err
+        }
+    }
+
+    // Step 3: Wait for API server
+    if !b.isAPIServerResponding() {
+        if err := b.waitForAPIServer(); err != nil {
+            return err
+        }
+    }
+
+    // Each step checks state first - no explicit "resume" needed
+    return nil
+}
+```
+
+#### 4. Manual Verification Checklist
+
+Since bash scripts have no automated tests, each operation must be manually verified:
+
+**For Cluster Bootstrap:**
+- [ ] Run `wild-cli cluster bootstrap` on real hardware
+- [ ] Verify control plane nodes boot and join
+- [ ] Check VIP is assigned and API server responds
+- [ ] Verify etcd cluster is healthy
+- [ ] Confirm kubectl commands work
+- [ ] Compare file structure with v.PoC WC_HOME
+- [ ] Verify config.yaml has same keys as bash scripts would create
+- [ ] Check logs match bash script verbosity and patterns
+
+**For Node Setup:**
+- [ ] Run `wild-cli node setup control-1` on maintenance mode node
+- [ ] Verify hardware detection matches `wild-node-detect` output
+- [ ] Check configuration files created in correct locations
+- [ ] Verify Talos configuration applies successfully
+- [ ] Confirm node reboots and joins cluster
+
+**For Service Installation:**
+- [ ] Run `wild-cli service install metallb`
+- [ ] Verify service deploys in correct order
+- [ ] Check dependencies are installed first
+- [ ] Confirm pods reach Running state
+- [ ] Verify service configuration matches v.PoC templates
+
+**For App Deployment:**
+- [ ] Run `wild-cli app add ghost`
+- [ ] Verify manifest.yaml copied and processed
+- [ ] Check defaultConfig merged into config.yaml
+- [ ] Confirm secrets generated with correct values
+- [ ] Verify templates compiled with gomplate
+- [ ] Run `wild-cli app deploy ghost`
+- [ ] Check dependencies (PostgreSQL) deploy first
+- [ ] Confirm app accessible via ingress
+
+#### 5. Behavioral Equivalence Tests
+
+Test that Go implementation behaves identically to bash:
+
+```go
+func TestConfigSetBehavior(t *testing.T) {
+    instance := "test-cluster"
+
+    // Set nested key (bash: wild-config-set "cluster.nodes.active.control-1.ip" "192.168.1.91")
+    err := config.SetKey(instance, "cluster.nodes.active.control-1.ip", "192.168.1.91")
+    require.NoError(t, err)
+
+    // Verify key is set
+    value, err := config.GetKey(instance, "cluster.nodes.active.control-1.ip")
+    assert.NoError(t, err)
+    assert.Equal(t, "192.168.1.91", value)
+
+    // Verify YAML structure matches bash output
+    configYAML := readYAML(getConfigPath(instance))
+    assert.Equal(t, "192.168.1.91",
+        configYAML["cluster"].(map[string]interface{})
+            ["nodes"].(map[string]interface{})
+            ["active"].(map[string]interface{})
+            ["control-1"].(map[string]interface{})
+            ["ip"])
+}
+
+func TestSecretGenerationBehavior(t *testing.T) {
+    instance := "test-cluster"
+
+    // Generate secret (bash: wild-secret-set generates 32-char base64)
+    err := secrets.GenerateSecret(instance, "apps.ghost.dbPassword")
+    require.NoError(t, err)
+
+    // Verify secret format matches bash
+    value, err := secrets.GetSecret(instance, "apps.ghost.dbPassword")
+    require.NoError(t, err)
+
+    // Should be 32 characters, alphanumeric
+    assert.Equal(t, 32, len(value))
+    assert.Regexp(t, "^[a-zA-Z0-9]+$", value)
+}
+```
+
+#### 6. Real Infrastructure Tests
+
+**Critical:** Must be tested against actual Talos nodes and Kubernetes clusters:
+
+```go
+// +build integration
+
+func TestRealClusterBootstrap(t *testing.T) {
+    if os.Getenv("INTEGRATION_TEST") != "true" {
+        t.Skip("Skipping integration test")
+    }
+
+    // This test requires:
+    // - 3 physical machines or VMs with Talos
+    // - Machines in maintenance mode
+    // - Network configuration from environment
+
+    instance := "integration-test-cluster"
+
+    // Create instance
+    err := instance.Create(instance)
+    require.NoError(t, err)
+
+    // Set required config
+    config.SetKey(instance, "cluster.name", "integration-test")
+    config.SetKey(instance, "cluster.nodes.control.vip", os.Getenv("TEST_VIP"))
+    // ... set other required config
+
+    // Bootstrap cluster
+    err = cluster.Bootstrap(ctx, instance)
+    require.NoError(t, err)
+
+    // Verify real cluster is functional
+    nodes, err := kubectl.GetNodes()
+    require.NoError(t, err)
+    assert.GreaterOrEqual(t, len(nodes), 1)
+
+    // Cleanup
+    t.Cleanup(func() {
+        cluster.Destroy(ctx, instance)
+    })
+}
+```
+
+### Implementation Checklist
+
+For each bash script being migrated:
+
+- [ ] **Document exact command sequence** from bash script
+- [ ] **Identify all state checks** (config keys, files, kubectl queries)
+- [ ] **Map to Go methods** with same external commands
+- [ ] **Implement idempotency checks** before operations
+- [ ] **Add progress tracking** for multi-step operations
+- [ ] **Create rollback logic** for failures
+- [ ] **Write integration test** comparing bash vs Go state
+- [ ] **Verify log output** matches bash script patterns
+- [ ] **Test resume from failure** scenarios
+- [ ] **Validate with real cluster** deployment
+
+### Additional Idempotency Patterns
+
+#### Pattern 5: Network Retry Logic
+
+**Bash Pattern:**
+```bash
+# Retry curl with exponential backoff
+for i in {1..5}; do
+    if curl -s "https://api.example.com" >/dev/null 2>&1; then
+        break
+    fi
+    sleep $((2 ** i))
+done
+```
+
+**Go Implementation:**
+```go
+func RetryWithBackoff(fn func() error, maxRetries int) error {
+    for i := 0; i < maxRetries; i++ {
+        if err := fn(); err == nil {
+            return nil
+        }
+        if i < maxRetries-1 {
+            backoff := time.Duration(1<<uint(i)) * time.Second
+            time.Sleep(backoff)
+        }
+    }
+    return fmt.Errorf("operation failed after %d retries", maxRetries)
+}
+```
+
+#### Pattern 6: Lock File Management
+
+**Bash Pattern:**
+```bash
+LOCK_FILE="/tmp/wild-cluster-${CLUSTER_NAME}.lock"
+exec 200>"${LOCK_FILE}"
+if ! flock -n 200; then
+    echo "Another operation is in progress"
+    exit 1
+fi
+# Operations here
+flock -u 200
+```
+
+**Go Implementation:**
+```go
+type OperationLock struct {
+    lockDir string
+}
+
+func (l *OperationLock) Acquire(instance, operation string) (*os.File, error) {
+    lockPath := filepath.Join(l.lockDir, fmt.Sprintf("%s-%s.lock", instance, operation))
+
+    // Create lock file
+    f, err := os.OpenFile(lockPath, os.O_CREATE|os.O_RDWR, 0600)
+    if err != nil {
+        return nil, err
+    }
+
+    // Try to acquire exclusive lock
+    if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
+        f.Close()
+        return nil, fmt.Errorf("another operation is in progress: %w", err)
+    }
+
+    return f, nil
+}
+
+func (l *OperationLock) Release(f *os.File) error {
+    defer f.Close()
+    return syscall.Flock(int(f.Fd()), syscall.LOCK_UN)
+}
+```
+
+#### Pattern 7: Environment Variable Handling
+
+**Bash Pattern:**
+```bash
+export KUBECONFIG="${WC_HOME}/.kube/config"
+export TALOSCONFIG="${WC_HOME}/.talos/config"
+kubectl get nodes  # Uses KUBECONFIG
+```
+
+**Go Implementation:**
+```go
+type ToolExecutor struct {
+    instance string
+    wcHome   string
+}
+
+func (t *ToolExecutor) execWithEnv(name string, args ...string) (string, error) {
+    cmd := exec.Command(name, args...)
+
+    // Set environment variables like bash scripts
+    cmd.Env = append(os.Environ(),
+        fmt.Sprintf("KUBECONFIG=%s/.kube/config", t.wcHome),
+        fmt.Sprintf("TALOSCONFIG=%s/.talos/config", t.wcHome),
+    )
+
+    output, err := cmd.CombinedOutput()
+    return string(output), err
+}
+```
+
+### Bash Construct Mappings
+
+#### Pipes and Process Substitution
+
+**Bash:**
+```bash
+kubectl get pods -A | grep Running | wc -l
+```
+
+**Go:**
+```go
+func CountRunningPods() (int, error) {
+    output, err := kubectl.Get("pods", "-A", "-o", "json")
+    if err != nil {
+        return 0, err
+    }
+
+    var podList struct {
+        Items []struct {
+            Status struct {
+                Phase string `json:"phase"`
+            } `json:"status"`
+        } `json:"items"`
+    }
+
+    json.Unmarshal([]byte(output), &podList)
+
+    count := 0
+    for _, pod := range podList.Items {
+        if pod.Status.Phase == "Running" {
+            count++
+        }
+    }
+    return count, nil
+}
+```
+
+#### Background Processes
+
+**Bash:**
+```bash
+long_running_command &
+bg_pid=$!
+# Do other work
+wait $bg_pid
+```
+
+**Go:**
+```go
+func RunInBackground(fn func() error) <-chan error {
+    errCh := make(chan error, 1)
+    go func() {
+        errCh <- fn()
+    }()
+    return errCh
+}
+
+// Usage
+errCh := RunInBackground(longRunningOperation)
+// Do other work
+if err := <-errCh; err != nil {
+    return err
+}
+```
+
+### Signal Handling
+
+**Bash Pattern:**
+```bash
+trap cleanup EXIT INT TERM
+
+cleanup() {
+    echo "Cleaning up..."
+    rm -f "${LOCK_FILE}"
+}
+```
+
+**Go Implementation:**
+```go
+func main() {
+    ctx, cancel := context.WithCancel(context.Background())
+    defer cancel()
+
+    // Handle signals
+    sigCh := make(chan os.Signal, 1)
+    signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+
+    go func() {
+        sig := <-sigCh
+        log.Printf("Received signal %v, shutting down gracefully", sig)
+        cancel()
+    }()
+
+    // Run operations with context
+    if err := runOperations(ctx); err != nil {
+        if err == context.Canceled {
+            log.Println("Operation canceled")
+        } else {
+            log.Fatalf("Operation failed: %v", err)
+        }
+    }
+
+    // Cleanup
+    cleanup()
+}
+```
+
+### Critical Implementation Notes
+
+1. **Exact Command Replication**: Use same kubectl/talosctl arguments as bash scripts
+2. **State File Locations**: Maintain exact same paths as v.PoC (`setup/`, `apps/`, etc.)
+3. **Error Messages**: Match bash script error output for user familiarity
+4. **Log Verbosity**: Match bash script `print_info`, `print_success` patterns
+5. **User Prompts**: Maintain same interactive prompts as bash scripts
+6. **File Permissions**: Match bash behavior (secrets.yaml = 600, etc.)
+7. **Atomic Operations**: Use file locking for concurrent safety
+8. **Backup Before Modify**: Keep backup of configs before updates
+9. **Timeout Values**: Match exact timeout values from bash scripts
+10. **Environment Variables**: Propagate same env vars as bash scripts
+11. **Signal Handling**: Handle SIGINT/SIGTERM gracefully like bash trap
+12. **Stdout/Stderr Separation**: Capture separately for accurate logging
+
+### Enhanced Implementation Checklist
+
+For each bash script being migrated:
+
+- [ ] **Document exact command sequence** from bash script
+- [ ] **Identify all state checks** (config keys, files, kubectl queries)
+- [ ] **Map to Go methods** with same external commands
+- [ ] **Implement idempotency checks** before each step
+- [ ] **Add operation state tracking** for UI progress display
+- [ ] **Create rollback logic** for failures (where applicable)
+- [ ] **Write state-based validation tests** (verify files, config keys, permissions)
+- [ ] **Write idempotency tests** (run twice, compare state; run after partial completion)
+- [ ] **Verify log output** matches bash script patterns
+- [ ] **Manual verification** with real cluster deployment
+- [ ] **Verify timeout values** match bash scripts
+- [ ] **Test concurrent operation safety** (lock files prevent conflicts)
+- [ ] **Validate network partition handling** (operations fail gracefully, can re-run)
+- [ ] **Check signal handling** (SIGTERM/SIGINT cleanup)
+- [ ] **Test lock file behavior** under contention
+- [ ] **Verify environment variable propagation** (KUBECONFIG, TALOSCONFIG)
+- [ ] **Compare performance** with bash script timing
+- [ ] **Test degraded network conditions** (retries work, idempotency handles partial completion)
 
 ---
 

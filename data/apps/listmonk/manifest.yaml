@@ -1,0 +1,20 @@
+name: listmonk
+description: Listmonk is a standalone, self-hosted, newsletter and mailing list manager. It is fast, feature-rich, and packed into a single binary.
+version: 5.0.3
+icon: https://listmonk.app/static/images/logo.svg
+requires:
+  - name: postgres
+defaultConfig:
+  domain: listmonk.{{ .cloud.domain }}
+  tlsSecretName: wildcard-wild-cloud-tls
+  storage: 1Gi
+  dbHost: postgres.postgres.svc.cluster.local
+  dbPort: 5432
+  dbName: listmonk
+  dbUser: listmonk
+  dbSSLMode: disable
+  timezone: UTC
+requiredSecrets:
+  - apps.listmonk.dbPassword
+  - apps.listmonk.dbUrl
+  - apps.postgres.password

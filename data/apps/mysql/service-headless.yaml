@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql-headless
+  namespace: mysql
+spec:
+  type: ClusterIP
+  clusterIP: None
+  publishNotReadyAddresses: true
+  ports:
+    - name: mysql
+      port: {{ .apps.mysql.port }}
+      protocol: TCP
+      targetPort: mysql
+  selector:
+    component: primary

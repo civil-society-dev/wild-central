@@ -1,0 +1,36 @@
+name: discourse
+description: Discourse is a modern, open-source discussion platform designed for online communities and forums.
+version: 3.4.7
+icon: https://www.discourse.org/img/icon.png
+requires:
+  - name: postgres
+  - name: redis
+defaultConfig:
+  timezone: UTC
+  port: 8080
+  storage: 10Gi
+  adminEmail: admin@{{ .cloud.domain }}
+  adminUsername: admin
+  siteName: "Community"
+  domain: discourse.{{ .cloud.domain }}
+  dbHostname: postgres.postgres.svc.cluster.local
+  dbUsername: discourse
+  dbName: discourse
+  redisHostname: redis.redis.svc.cluster.local
+  tlsSecretName: wildcard-wild-cloud-tls
+  smtp:
+    enabled: false
+    host: "{{ .cloud.smtp.host }}"
+    port: "{{ .cloud.smtp.port }}"
+    user: "{{ .cloud.smtp.user }}"
+    from: "{{ .cloud.smtp.from }}"
+    tls: {{ .cloud.smtp.tls }}
+    startTls: {{ .cloud.smtp.startTls }}
+requiredSecrets:
+  - apps.discourse.adminPassword
+  - apps.discourse.dbPassword
+  - apps.discourse.dbUrl
+  - apps.redis.password
+  - apps.discourse.secretKeyBase
+  - apps.discourse.smtpPassword
+  - apps.postgres.password

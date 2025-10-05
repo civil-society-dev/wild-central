@@ -1,0 +1,236 @@
+---
+# Source: discourse/templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: discourse
+  namespace: discourse
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      component: web
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        component: web
+    spec:
+      automountServiceAccountToken: false
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    component: web
+                topologyKey: kubernetes.io/hostname
+              weight: 1
+
+      serviceAccountName: discourse
+      securityContext:
+        fsGroup: 0
+        fsGroupChangePolicy: Always
+        supplementalGroups: []
+        sysctls: []
+      initContainers:
+      containers:
+        - name: discourse
+          image: docker.io/bitnami/discourse:3.4.7-debian-12-r0
+          imagePullPolicy: "IfNotPresent"
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              add:
+                - CHOWN
+                - SYS_CHROOT
+                - FOWNER
+                - SETGID
+                - SETUID
+                - DAC_OVERRIDE
+              drop:
+                - ALL
+            privileged: false
+            readOnlyRootFilesystem: false
+            runAsGroup: 0
+            runAsNonRoot: false
+            runAsUser: 0
+            seLinuxOptions: {}
+            seccompProfile:
+              type: RuntimeDefault
+          env:
+            - name: BITNAMI_DEBUG
+              value: "false"
+            - name: DISCOURSE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: discourse-secrets
+                  key: apps.discourse.adminPassword
+            - name: DISCOURSE_PORT_NUMBER
+              value: "8080"
+            - name: DISCOURSE_EXTERNAL_HTTP_PORT_NUMBER
+              value: "80"
+            - name: DISCOURSE_DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: discourse-secrets
+                  key: apps.discourse.dbPassword
+            - name: POSTGRESQL_CLIENT_CREATE_DATABASE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: discourse-secrets
+                  key: apps.discourse.dbPassword
+            - name: DISCOURSE_REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: discourse-secrets
+                  key: apps.redis.password
+            - name: DISCOURSE_SECRET_KEY_BASE
+              valueFrom:
+                secretKeyRef:
+                  name: discourse-secrets
+                  key: apps.discourse.secretKeyBase
+            - name: DISCOURSE_SMTP_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: discourse-secrets
+                  key: apps.discourse.smtpPassword
+            - name: SMTP_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: discourse-secrets
+                  key: apps.discourse.smtpPassword
+          envFrom:
+            - configMapRef:
+                name: discourse
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          livenessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 500
+            periodSeconds: 10
+            timeoutSeconds: 5
+            successThreshold: 1
+            failureThreshold: 6
+          readinessProbe:
+            httpGet:
+              path: /srv/status
+              port: http
+            initialDelaySeconds: 180
+            periodSeconds: 10
+            timeoutSeconds: 5
+            successThreshold: 1
+            failureThreshold: 6
+          resources:
+            limits:
+              cpu: 1
+              ephemeral-storage: 2Gi
+              memory: 8Gi # for precompiling assets!
+            requests:
+              cpu: 750m
+              ephemeral-storage: 50Mi
+              memory: 1Gi
+          volumeMounts:
+            - name: discourse-data
+              mountPath: /bitnami/discourse
+              subPath: discourse
+        - name: sidekiq
+          image: docker.io/bitnami/discourse:3.4.7-debian-12-r0
+          imagePullPolicy: "IfNotPresent"
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              add:
+                - CHOWN
+                - SYS_CHROOT
+                - FOWNER
+                - SETGID
+                - SETUID
+                - DAC_OVERRIDE
+              drop:
+                - ALL
+            privileged: false
+            readOnlyRootFilesystem: false
+            runAsGroup: 0
+            runAsNonRoot: false
+            runAsUser: 0
+            seLinuxOptions: {}
+            seccompProfile:
+              type: RuntimeDefault
+          command:
+            - /opt/bitnami/scripts/discourse/entrypoint.sh
+          args:
+            - /opt/bitnami/scripts/discourse-sidekiq/run.sh
+          env:
+            - name: BITNAMI_DEBUG
+              value: "false"
+            - name: DISCOURSE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: discourse-secrets
+                  key: apps.discourse.adminPassword
+            - name: DISCOURSE_POSTGRESQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: discourse-secrets
+                  key: apps.discourse.dbPassword
+            - name: DISCOURSE_REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: discourse-secrets
+                  key: apps.redis.password
+            - name: DISCOURSE_SECRET_KEY_BASE
+              valueFrom:
+                secretKeyRef:
+                  name: discourse-secrets
+                  key: apps.discourse.secretKeyBase
+            - name: DISCOURSE_SMTP_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: discourse-secrets
+                  key: apps.discourse.smtpPassword
+            - name: SMTP_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: discourse-secrets
+                  key: apps.discourse.smtpPassword
+          envFrom:
+            - configMapRef:
+                name: discourse
+          livenessProbe:
+            exec:
+              command: ["/bin/sh", "-c", "pgrep -f ^sidekiq"]
+            initialDelaySeconds: 500
+            periodSeconds: 10
+            timeoutSeconds: 5
+            successThreshold: 1
+            failureThreshold: 6
+          readinessProbe:
+            exec:
+              command: ["/bin/sh", "-c", "pgrep -f ^sidekiq"]
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            successThreshold: 1
+            failureThreshold: 6
+          resources:
+            limits:
+              cpu: 500m
+              ephemeral-storage: 2Gi
+              memory: 768Mi
+            requests:
+              cpu: 375m
+              ephemeral-storage: 50Mi
+              memory: 512Mi
+          volumeMounts:
+            - name: discourse-data
+              mountPath: /bitnami/discourse
+              subPath: discourse
+      volumes:
+        - name: discourse-data
+          persistentVolumeClaim:
+            claimName: discourse

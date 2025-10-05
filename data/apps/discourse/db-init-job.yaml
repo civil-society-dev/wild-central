@@ -1,0 +1,77 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: discourse-db-init
+  namespace: discourse
+spec:
+  template:
+    metadata:
+      labels:
+        component: db-init
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+        runAsGroup: 999
+        seccompProfile:
+          type: RuntimeDefault
+      restartPolicy: OnFailure
+      containers:
+      - name: db-init
+        image: postgres:16-alpine
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: false
+        env:
+        - name: PGHOST
+          value: "{{ .apps.discourse.dbHostname }}"
+        - name: PGPORT
+          value: "5432"
+        - name: PGUSER
+          value: postgres
+        - name: PGPASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: discourse-secrets
+              key: apps.postgres.password
+        - name: DISCOURSE_DB_USER
+          value: "{{ .apps.discourse.dbUsername }}"
+        - name: DISCOURSE_DB_NAME
+          value: "{{ .apps.discourse.dbName }}"
+        - name: DISCOURSE_DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: discourse-secrets
+              key: apps.discourse.dbPassword
+        command:
+        - /bin/sh
+        - -c
+        - |
+          echo "Initializing Discourse database..."
+          
+          # Create database if it doesn't exist
+          if ! psql -lqt | cut -d \| -f 1 | grep -qw "$DISCOURSE_DB_NAME"; then
+            echo "Creating database $DISCOURSE_DB_NAME..."
+            createdb "$DISCOURSE_DB_NAME"
+          else
+            echo "Database $DISCOURSE_DB_NAME already exists."
+          fi
+          
+          # Create user if it doesn't exist and grant permissions
+          psql -d "$DISCOURSE_DB_NAME" -c "
+            DO \$\$
+            BEGIN
+              IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = '$DISCOURSE_DB_USER') THEN
+                CREATE USER $DISCOURSE_DB_USER WITH PASSWORD '$DISCOURSE_DB_PASSWORD';
+              END IF;
+            END
+            \$\$;
+            GRANT ALL PRIVILEGES ON DATABASE $DISCOURSE_DB_NAME TO $DISCOURSE_DB_USER;
+            GRANT ALL ON SCHEMA public TO $DISCOURSE_DB_USER;
+            GRANT USAGE ON SCHEMA public TO $DISCOURSE_DB_USER;
+          "
+          
+          echo "Database initialization completed."

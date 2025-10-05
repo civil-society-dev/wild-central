@@ -1,0 +1,85 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: keila
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      component: web
+  template:
+    metadata:
+      labels:
+        component: web
+    spec:
+      containers:
+      - name: keila
+        image: {{ .apps.keila.image }}
+        ports:
+        - containerPort: {{ .apps.keila.port }}
+        env:
+        - name: DB_URL
+          valueFrom:
+            secretKeyRef:
+              name: keila-secrets
+              key: apps.keila.dbUrl
+        - name: URL_HOST
+          value: {{ .apps.keila.domain }}
+        - name: URL_SCHEMA
+          value: https
+        - name: URL_PORT
+          value: "443"
+        - name: PORT
+          value: "{{ .apps.keila.port }}"
+        - name: SECRET_KEY_BASE
+          valueFrom:
+            secretKeyRef:
+              name: keila-secrets
+              key: apps.keila.secretKeyBase
+        - name: MAILER_SMTP_HOST
+          value: {{ .apps.keila.smtp.host }}
+        - name: MAILER_SMTP_PORT
+          value: "{{ .apps.keila.smtp.port }}"
+        - name: MAILER_ENABLE_SSL
+          value: "{{ .apps.keila.smtp.tls }}"
+        - name: MAILER_ENABLE_STARTTLS
+          value: "{{ .apps.keila.smtp.startTls }}"
+        - name: MAILER_SMTP_USER
+          value: {{ .apps.keila.smtp.user }}
+        - name: MAILER_SMTP_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: keila-secrets
+              key: apps.keila.smtpPassword
+        - name: MAILER_SMTP_FROM_EMAIL
+          value: {{ .apps.keila.smtp.from }}
+        - name: DISABLE_REGISTRATION
+          value: "{{ .apps.keila.disableRegistration }}"
+        - name: KEILA_USER
+          value: "{{ .apps.keila.adminUser }}"
+        - name: KEILA_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: keila-secrets
+              key: apps.keila.adminPassword
+        - name: USER_CONTENT_DIR
+          value: /var/lib/keila/uploads
+        volumeMounts:
+        - name: uploads
+          mountPath: /var/lib/keila/uploads
+        livenessProbe:
+          httpGet:
+            path: /
+            port: {{ .apps.keila.port }}
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /
+            port: {{ .apps.keila.port }}
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      volumes:
+      - name: uploads
+        persistentVolumeClaim:
+          claimName: keila-uploads

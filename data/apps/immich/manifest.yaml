@@ -1,0 +1,25 @@
+name: immich
+install: true
+description: Immich is a self-hosted photo and video backup solution that allows you to store, manage, and share your media files securely.
+version: 1.0.0
+icon: https://immich.app/assets/images/logo.png
+requires:
+  - name: redis
+  - name: postgres
+defaultConfig:
+  serverImage: ghcr.io/immich-app/immich-server:release
+  mlImage: ghcr.io/immich-app/immich-machine-learning:release
+  timezone: UTC
+  serverPort: 2283
+  mlPort: 3003
+  storage: 250Gi
+  cacheStorage: 10Gi
+  redisHostname: redis.redis.svc.cluster.local
+  dbHostname: postgres.postgres.svc.cluster.local
+  dbUsername: immich
+  domain: immich.{{ .cloud.domain }}
+  tlsSecretName: wildcard-wild-cloud-tls
+requiredSecrets:
+  - apps.immich.dbPassword
+  - apps.postgres.password
+  - apps.redis.password

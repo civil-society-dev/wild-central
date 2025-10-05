@@ -1,0 +1,31 @@
+name: keila
+description: Keila is an open-source email marketing platform that allows you to send newsletters and manage mailing lists with privacy and control.
+version: 1.0.0
+icon: https://www.keila.io/images/logo.svg
+requires:
+  - name: postgres
+defaultConfig:
+  image: pentacent/keila:latest
+  port: 4000
+  storage: 1Gi
+  domain: keila.{{ .cloud.domain }}
+  dbHostname: postgres.postgres.svc.cluster.local
+  dbName: keila
+  dbUsername: keila
+  disableRegistration: "true"
+  adminUser: admin@{{ .cloud.domain }}
+  tlsSecretName: wildcard-wild-cloud-tls
+  smtp:
+    host: "{{ .cloud.smtp.host }}"
+    port: "{{ .cloud.smtp.port }}"
+    from: "{{ .cloud.smtp.from }}"
+    user: "{{ .cloud.smtp.user }}"
+    tls: {{ .cloud.smtp.tls }}
+    startTls: {{ .cloud.smtp.startTls }}
+requiredSecrets:
+  - apps.keila.secretKeyBase
+  - apps.keila.dbPassword
+  - apps.keila.dbUrl
+  - apps.keila.adminPassword
+  - apps.keila.smtpPassword
+  - apps.postgres.password

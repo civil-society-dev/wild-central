@@ -1,0 +1,21 @@
+name: vllm
+description: vLLM is a fast and easy-to-use library for LLM inference and serving with OpenAI-compatible API
+version: 0.5.4
+icon: https://raw.githubusercontent.com/vllm-project/vllm/main/docs/source/assets/logos/vllm-logo-text-light.png
+requires: []
+defaultConfig:
+  image: vllm/vllm-openai:v0.5.4
+  model: Qwen/Qwen2.5-7B-Instruct
+  maxModelLen: 8192
+  tensorParallelSize: 1
+  gpuMemoryUtilization: 0.90
+  enforceEager: true
+  gpuProduct: "RTX 4090"
+  cpuRequest: "4"
+  cpuLimit: "8"
+  memoryRequest: "16Gi"
+  memoryLimit: "24Gi"
+  gpuCount: 1
+  domain: vllm.{{ .cloud.domain }}
+  namespace: llm
+requiredSecrets: []

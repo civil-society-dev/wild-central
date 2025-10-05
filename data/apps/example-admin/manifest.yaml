@@ -1,0 +1,6 @@
+name: example-admin
+install: true
+description: An example application that is deployed with internal-only access.
+version: 1.0.0
+defaultConfig:
+  tlsSecretName: wildcard-internal-wild-cloud-tls

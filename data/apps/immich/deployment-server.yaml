@@ -1,0 +1,56 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: immich-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: immich-server
+  strategy:
+    rollingUpdate:
+      maxSurge: 0
+      maxUnavailable: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: immich-server
+        component: server
+    spec:
+      containers:
+        - image: "{{ .apps.immich.serverImage }}"
+          name: immich-server
+          ports:
+            - containerPort: {{ .apps.immich.serverPort }}
+              protocol: TCP
+          env:
+            - name: REDIS_HOSTNAME
+              value: "{{ .apps.immich.redisHostname }}"
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: immich-secrets
+                  key: apps.redis.password
+            - name: DB_HOSTNAME
+              value: "{{ .apps.immich.dbHostname }}"
+            - name: DB_USERNAME
+              value: "{{ .apps.immich.dbUsername }}"
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: immich-secrets
+                  key: apps.immich.dbPassword
+            - name: TZ
+              value: "{{ .apps.immich.timezone }}"
+            - name: IMMICH_WORKERS_EXCLUDE
+              value: microservices
+          volumeMounts:
+            - mountPath: /usr/src/app/upload
+              name: immich-storage
+              readOnly: false
+      volumes:
+        - name: immich-storage
+          persistentVolumeClaim:
+            claimName: immich-pvc

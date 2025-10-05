@@ -1,0 +1,30 @@
+name: ghost
+description: Ghost is a powerful app for new-media creators to publish, share, and grow a business around their content.
+version: 5.118.1
+icon: https://ghost.org/images/logos/ghost-logo-orb.png
+requires:
+  - name: mysql
+defaultConfig:
+  image: docker.io/bitnami/ghost:5.118.1-debian-12-r0
+  domain: ghost.{{ .cloud.domain }}
+  tlsSecretName: wildcard-wild-cloud-tls
+  port: 2368
+  storage: 10Gi
+  dbHost: mysql.mysql.svc.cluster.local
+  dbPort: 3306
+  dbName: ghost
+  dbUser: ghost
+  adminUser: admin
+  adminEmail: "admin@{{ .cloud.domain }}"
+  blogTitle: "My Blog"
+  timezone: UTC
+  tlsSecretName: wildcard-wild-cloud-tls
+  smtp:
+    host: "{{ .cloud.smtp.host }}"
+    port: "{{ .cloud.smtp.port }}"
+    from: "{{ .cloud.smtp.from }}"
+    user: "{{ .cloud.smtp.user }}"
+requiredSecrets:
+  - apps.ghost.adminPassword
+  - apps.ghost.dbPassword
+  - apps.ghost.smtpPassword

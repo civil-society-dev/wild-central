@@ -1,0 +1,17 @@
+name: mysql
+description: MySQL is an open-source relational database management system
+version: 8.4.5
+icon: https://www.mysql.com/common/logos/logo-mysql-170x115.png
+requires: []
+defaultConfig:
+  image: docker.io/bitnami/mysql:8.4.5-debian-12-r0
+  port: 3306
+  storage: 20Gi
+  dbName: mysql
+  rootUser: root
+  user: mysql
+  timezone: UTC
+  enableSSL: false
+requiredSecrets:
+  - apps.mysql.rootPassword
+  - apps.mysql.password

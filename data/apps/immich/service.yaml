@@ -1,0 +1,33 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: immich-server
+  namespace: immich
+  labels:
+    app: immich-server
+spec:
+  ports:
+    - port: 3001
+      targetPort: {{ .apps.immich.serverPort }}
+  selector:
+    app: immich
+    component: server
+    managedBy: kustomize
+    partOf: wild-cloud
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: immich-machine-learning
+  namespace: immich
+  labels:
+    app: immich-machine-learning
+spec:
+  ports:
+    - port: {{ .apps.immich.mlPort }}
+  selector:
+    app: immich
+    component: machine-learning
+    managedBy: kustomize
+    partOf: wild-cloud

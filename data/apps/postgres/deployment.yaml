@@ -1,0 +1,54 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+        - name: postgres
+          image: "{{ .apps.postgres.image }}"
+          args:
+            [
+              "-c",
+              "tcp_keepalives_idle=600",
+              "-c",
+              "tcp_keepalives_interval=30",
+              "-c",
+              "tcp_keepalives_count=3",
+              "-c",
+              "statement_timeout=300000",
+              "-c",
+              "idle_in_transaction_session_timeout=600000",
+            ]
+          ports:
+            - containerPort: 5432
+          env:
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+            - name: TZ
+              value: "{{ .apps.postgres.timezone }}"
+            - name: POSTGRES_DB
+              value: "{{ .apps.postgres.database }}"
+            - name: POSTGRES_USER
+              value: "{{ .apps.postgres.user }}"
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secrets
+                  key: apps.postgres.password
+          volumeMounts:
+            - name: postgres-data
+              mountPath: /var/lib/postgresql/data
+      volumes:
+        - name: postgres-data
+          persistentVolumeClaim:
+            claimName: postgres-pvc

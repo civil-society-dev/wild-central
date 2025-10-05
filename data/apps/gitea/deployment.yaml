@@ -1,0 +1,92 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gitea
+  namespace: gitea
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      component: web
+  template:
+    metadata:
+      labels:
+        app: gitea
+        component: web
+        managedBy: kustomize
+        partOf: wild-cloud
+    spec:
+      securityContext:
+        fsGroup: 1000
+      terminationGracePeriodSeconds: 60
+      containers:
+        - name: gitea
+          image: "{{ .apps.gitea.image }}"
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef:
+                name: gitea-env
+          env:
+            - name: GITEA_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: gitea-secrets
+                  key: apps.gitea.adminPassword
+            - name: GITEA__security__SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: gitea-secrets
+                  key: apps.gitea.secretKey
+            - name: GITEA__security__INTERNAL_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: gitea-secrets
+                  key: apps.gitea.jwtSecret
+            - name: GITEA__database__PASSWD
+              valueFrom:
+                secretKeyRef:
+                  name: gitea-secrets
+                  key: apps.gitea.dbPassword
+            - name: GITEA__mailer__PASSWD
+              valueFrom:
+                secretKeyRef:
+                  name: gitea-secrets
+                  key: apps.gitea.smtpPassword
+          ports:
+            - name: ssh
+              containerPort: 2222
+            - name: http
+              containerPort: 3000
+          livenessProbe:
+            failureThreshold: 10
+            initialDelaySeconds: 200
+            periodSeconds: 10
+            successThreshold: 1
+            tcpSocket:
+              port: http
+            timeoutSeconds: 1
+          readinessProbe:
+            failureThreshold: 3
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            successThreshold: 1
+            tcpSocket:
+              port: http
+            timeoutSeconds: 1
+          resources:
+            {}
+          securityContext:
+            {}
+          volumeMounts:
+            - name: temp
+              mountPath: /tmp
+            - name: data
+              mountPath: /data
+      volumes:
+        - name: temp
+          emptyDir: {}
+        - name: data
+          persistentVolumeClaim:
+            claimName: gitea-data

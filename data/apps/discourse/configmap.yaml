@@ -1,0 +1,31 @@
+---
+# Source: discourse/templates/configmaps.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: discourse
+  namespace: discourse
+data:
+  DISCOURSE_HOSTNAME: "{{ .apps.discourse.domain }}"
+  DISCOURSE_SKIP_INSTALL: "no"
+  DISCOURSE_SITE_NAME: "{{ .apps.discourse.siteName }}"
+  DISCOURSE_USERNAME: "{{ .apps.discourse.adminUsername }}"
+  DISCOURSE_EMAIL: "{{ .apps.discourse.adminEmail }}"
+
+  DISCOURSE_REDIS_HOST: "{{ .apps.discourse.redisHostname }}"
+  DISCOURSE_REDIS_PORT_NUMBER: "6379"
+
+  DISCOURSE_DATABASE_HOST: "{{ .apps.discourse.dbHostname }}"
+  DISCOURSE_DATABASE_PORT_NUMBER: "5432"
+  DISCOURSE_DATABASE_NAME: "{{ .apps.discourse.dbName }}"
+  DISCOURSE_DATABASE_USER: "{{ .apps.discourse.dbUsername }}"
+
+  DISCOURSE_SMTP_HOST: "{{ .apps.discourse.smtp.host }}"
+  DISCOURSE_SMTP_PORT: "{{ .apps.discourse.smtp.port }}"
+  DISCOURSE_SMTP_USER: "{{ .apps.discourse.smtp.user }}"
+  DISCOURSE_SMTP_PROTOCOL: "tls"
+  DISCOURSE_SMTP_AUTH: "login"
+
+  # DISCOURSE_PRECOMPILE_ASSETS: "false"
+  # DISCOURSE_SKIP_INSTALL: "no"
+  # DISCOURSE_SKIP_BOOTSTRAP: "yes"

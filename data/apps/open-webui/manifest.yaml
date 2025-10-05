@@ -1,0 +1,17 @@
+name: openWebui
+description: Open WebUI is a comprehensive, open-source web interface for AI models. Features a user-friendly design, supports various LLM runners, and operates entirely offline. Perfect for creating a ChatGPT-like experience with local or hosted models.
+version: 0.4.5
+icon: https://docs.openwebui.com/assets/logo-dark.png
+requires: []
+defaultConfig:
+  image: ghcr.io/open-webui/open-webui:main
+  port: 8080
+  storage: 10Gi
+  domain: chat.{{ .cloud.domain }}
+  # vLLM integration - connect to existing vLLM service
+  vllmApiUrl: http://vllm-service.llm.svc.cluster.local:8000/v1
+  # Authentication settings
+  enableAuth: true
+  enableSignup: false
+requiredSecrets:
+  - apps.openWebui.secretKey

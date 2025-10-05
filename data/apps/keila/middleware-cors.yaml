@@ -1,0 +1,28 @@
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: cors
+spec:
+  headers:
+    accessControlAllowCredentials: true
+    accessControlAllowHeaders:
+      - "Content-Type"
+      - "Authorization" 
+      - "X-Requested-With"
+      - "Accept"
+      - "Origin"
+      - "Cache-Control"
+      - "X-File-Name"
+    accessControlAllowMethods:
+      - "GET"
+      - "POST" 
+      - "PUT"
+      - "DELETE"
+      - "OPTIONS"
+    accessControlAllowOriginList:
+      - "http://localhost:1313"
+      - "https://*.{{ .cloud.domain }}"
+      - "https://{{ .cloud.domain }}"
+    accessControlExposeHeaders:
+      - "*"
+    accessControlMaxAge: 86400

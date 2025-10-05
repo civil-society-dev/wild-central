@@ -1,0 +1,86 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: listmonk
+  namespace: listmonk
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      component: web
+  template:
+    metadata:
+      labels:
+        component: web
+    spec:
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: listmonk
+          image: listmonk/listmonk:v5.0.3
+          command: ["/bin/sh"]
+          args: ["-c", "./listmonk --install --idempotent --yes && ./listmonk --upgrade --yes && ./listmonk"]
+          ports:
+            - name: http
+              containerPort: 9000
+              protocol: TCP
+          env:
+            - name: LISTMONK_app__address
+              value: "0.0.0.0:9000"
+            - name: LISTMONK_db__host
+              value: {{ .apps.listmonk.dbHost }}
+            - name: LISTMONK_db__port
+              value: "{{ .apps.listmonk.dbPort }}"
+            - name: LISTMONK_db__user
+              value: {{ .apps.listmonk.dbUser }}
+            - name: LISTMONK_db__database
+              value: {{ .apps.listmonk.dbName }}
+            - name: LISTMONK_db__ssl_mode
+              value: {{ .apps.listmonk.dbSSLMode }}
+            - name: LISTMONK_db__password
+              valueFrom:
+                secretKeyRef:
+                  name: listmonk-secrets
+                  key: apps.listmonk.dbPassword
+          resources:
+            limits:
+              cpu: 500m
+              ephemeral-storage: 1Gi
+              memory: 512Mi
+            requests:
+              cpu: 100m
+              ephemeral-storage: 50Mi
+              memory: 128Mi
+          volumeMounts:
+            - name: listmonk-data
+              mountPath: /listmonk/data
+          livenessProbe:
+            tcpSocket:
+              port: 9000
+            initialDelaySeconds: 30
+            timeoutSeconds: 5
+            periodSeconds: 10
+            successThreshold: 1
+            failureThreshold: 3
+          readinessProbe:
+            tcpSocket:
+              port: 9000
+            initialDelaySeconds: 10
+            timeoutSeconds: 3
+            periodSeconds: 5
+            successThreshold: 1
+            failureThreshold: 3
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: false
+      volumes:
+        - name: listmonk-data
+          persistentVolumeClaim:
+            claimName: listmonk-data
+      restartPolicy: Always

@@ -1,0 +1,18 @@
+---
+# Source: discourse/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: discourse
+  namespace: discourse
+spec:
+  type: ClusterIP
+  sessionAffinity: None
+  ports:
+    - name: http
+      port: 80
+      protocol: TCP
+      targetPort: http
+      nodePort: null
+  selector:
+    component: web

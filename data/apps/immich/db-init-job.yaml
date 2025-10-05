@@ -1,0 +1,68 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: immich-db-init
+spec:
+  template:
+    spec:
+      containers:
+        - name: db-init
+          image: {{ .apps.postgres.image }}
+          command: ["/bin/bash", "-c"]
+          args:
+            - |
+              PGPASSWORD=${POSTGRES_ADMIN_PASSWORD} psql -h ${DB_HOSTNAME} -U postgres <<EOF
+              DO \$\$
+              BEGIN
+                IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = '${DB_USERNAME}') THEN
+                  CREATE USER ${DB_USERNAME} WITH ENCRYPTED PASSWORD '${DB_PASSWORD}';
+                ELSE
+                  ALTER USER ${DB_USERNAME} WITH ENCRYPTED PASSWORD '${DB_PASSWORD}';
+                END IF;
+              END
+              \$\$;
+
+              SELECT 'CREATE DATABASE ${DB_DATABASE_NAME}' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '${DB_DATABASE_NAME}')\gexec
+              ALTER DATABASE ${DB_DATABASE_NAME} OWNER TO ${DB_USERNAME};
+              GRANT ALL PRIVILEGES ON DATABASE ${DB_DATABASE_NAME} TO ${DB_USERNAME};
+              EOF
+
+              # Connect to the immich database and enable required extensions
+              PGPASSWORD=${POSTGRES_ADMIN_PASSWORD} psql -h ${DB_HOSTNAME} -U postgres -d ${DB_DATABASE_NAME} <<EOF
+              DO \$\$
+              BEGIN
+                -- Create vector extension if it doesn't exist
+                IF NOT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'vector') THEN
+                  CREATE EXTENSION vector;
+                END IF;
+                
+                -- Create cube extension if it doesn't exist
+                IF NOT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'cube') THEN
+                  CREATE EXTENSION cube;
+                END IF;
+                
+                -- Create earthdistance extension if it doesn't exist (depends on cube)
+                IF NOT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'earthdistance') THEN
+                  CREATE EXTENSION earthdistance;
+                END IF;
+              END
+              \$\$;
+              EOF
+          env:
+            - name: POSTGRES_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: immich-secrets
+                  key: apps.postgres.password
+            - name: DB_HOSTNAME
+              value: "{{ .apps.immich.dbHostname }}"
+            - name: DB_DATABASE_NAME
+              value: "{{ .apps.immich.dbUsername }}"
+            - name: DB_USERNAME
+              value: "{{ .apps.immich.dbUsername }}"
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: immich-secrets
+                  key: apps.immich.dbPassword
+      restartPolicy: OnFailure

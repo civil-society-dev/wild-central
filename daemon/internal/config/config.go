@@ -100,7 +100,7 @@ type NodeConfig struct {
 	CurrentIp string `yaml:"currentIp" json:"currentIp"`
 }
 
-type CloudConfig struct {
+type InstanceConfig struct {
 	BaseDomain     string `yaml:"baseDomain" json:"baseDomain"`
 	Domain         string `yaml:"domain" json:"domain"`
 	InternalDomain string `yaml:"internalDomain" json:"internalDomain"`
@@ -139,13 +139,13 @@ type CloudConfig struct {
 	} `yaml:"cluster" json:"cluster"`
 }
 
-func LoadCloudConfig(configPath string) (*CloudConfig, error) {
+func LoadCloudConfig(configPath string) (*InstanceConfig, error) {
 	data, err := os.ReadFile(configPath)
 	if err != nil {
 		return nil, fmt.Errorf("reading config file %s: %w", configPath, err)
 	}
 
-	config := &CloudConfig{}
+	config := &InstanceConfig{}
 	if err := yaml.Unmarshal(data, config); err != nil {
 		return nil, fmt.Errorf("parsing config file: %w", err)
 	}
@@ -153,7 +153,7 @@ func LoadCloudConfig(configPath string) (*CloudConfig, error) {
 	return config, nil
 }
 
-func SaveCloudConfig(config *CloudConfig, configPath string) error {
+func SaveCloudConfig(config *InstanceConfig, configPath string) error {
 	// Ensure the directory exists
 	if err := os.MkdirAll(filepath.Dir(configPath), 0755); err != nil {
 		return fmt.Errorf("creating config directory: %w", err)

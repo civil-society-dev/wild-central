@@ -16,7 +16,7 @@ import (
 // App represents the application with its dependencies
 type App struct {
 	Config         *config.GlobalConfig
-	Clouds         []config.CloudConfig
+	Clouds         []config.InstanceConfig
 	StartTime      time.Time
 	DataManager    *data.Manager
 	DnsmasqManager *dnsmasq.ConfigGenerator

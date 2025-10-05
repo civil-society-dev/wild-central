@@ -18,7 +18,7 @@ func NewConfigGenerator() *ConfigGenerator {
 }
 
 // Generate creates a dnsmasq configuration from the app config
-func (g *ConfigGenerator) Generate(cfg *config.GlobalConfig, clouds []config.CloudConfig) string {
+func (g *ConfigGenerator) Generate(cfg *config.GlobalConfig, clouds []config.InstanceConfig) string {
 
 	resolution_section := ""
 	for _, cloud := range clouds {
@@ -52,7 +52,7 @@ log-dhcp
 }
 
 // WriteConfig writes the dnsmasq configuration to the specified path
-func (g *ConfigGenerator) WriteConfig(cfg *config.GlobalConfig, clouds []config.CloudConfig, configPath string) error {
+func (g *ConfigGenerator) WriteConfig(cfg *config.GlobalConfig, clouds []config.InstanceConfig, configPath string) error {
 	configContent := g.Generate(cfg, clouds)
 
 	log.Printf("Writing dnsmasq config to: %s", configPath)

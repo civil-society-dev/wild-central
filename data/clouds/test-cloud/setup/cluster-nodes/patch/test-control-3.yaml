@@ -1,0 +1,23 @@
+machine:
+  install:
+    disk: /dev/sdb
+    image: factory.talos.dev/metal-installer/434a0300db532066f1098e05ac068159371d00f0aba0a3103a0e826e83825c82:v1.11.0
+  network:
+    hostname: "test-control-3"
+    interfaces:
+      - interface: enp4s0
+        dhcp: false
+        addresses:
+          - "192.168.8.33/24"
+        routes:
+          - network: 0.0.0.0/0
+            gateway: 192.168.8.1
+        vip:
+          ip: 192.168.8.30
+# cluster:
+#   discovery:
+#     enabled: true
+#     registries:
+#       service:
+#         disabled: true
+#   allowSchedulingOnControlPlanes: true

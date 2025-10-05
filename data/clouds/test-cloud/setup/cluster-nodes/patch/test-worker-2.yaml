@@ -1,0 +1,23 @@
+machine:
+  install:
+    disk: /dev/sda
+    image: factory.talos.dev/metal-installer/434a0300db532066f1098e05ac068159371d00f0aba0a3103a0e826e83825c82:v1.11.0
+  network:
+    hostname: "test-worker-2"
+    interfaces:
+      - interface: enp3s0
+        dhcp: true
+        addresses:
+          - "192.168.8.104/24"
+        routes:
+          - network: 0.0.0.0/0
+            gateway: 192.168.8.1
+  kubelet:
+    extraMounts:
+      - destination: /var/lib/longhorn
+        type: bind
+        source: /var/lib/longhorn
+        options:
+          - bind
+          - rshared
+          - rw

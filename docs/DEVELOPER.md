@@ -13,6 +13,8 @@ This guide covers development, testing, and local building of Wild Cloud Central
 ```bash
 sudo apt update
 sudo apt install make direnv
+echo 'eval "$(direnv hook bash)"' >> $HOME/.bashrc
+source $HOME/.bashrc
 
 # Node.js and pnpm setup
 curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash
@@ -26,15 +28,18 @@ pnpm install -g @anthropic-ai/claude-code
 # Golang setup
 wget https://go.dev/dl/go1.24.5.linux-arm64.tar.gz
 sudo tar -C /usr/local -xzf ./go1.24.5.linux-arm64.tar.gz
-echo 'export PATH="$PATH:/usr/local/go/bin"' >> $HOME/.bashrc
-rm ./go1.24.5.linux-arm64.tar.gz
+echo 'export PATH="$PATH:$HOME/go/bin:/usr/local/go/bin"' >> $HOME/.bashrc
 source $HOME/.bashrc
+rm ./go1.24.5.linux-arm64.tar.gz
 go install -v github.com/go-delve/delve/cmd/dlv@latest
 
 # Python setup
 curl -LsSf https://astral.sh/uv/install.sh | sh
 source $HOME/.local/bin/env
 uv sync
+
+# Runtime dependencies
+./scripts/install-wild-cloud-dependencies.sh
 
 # App
 cd app && pnpm install && cd ..

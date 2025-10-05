@@ -22,7 +22,7 @@ func main() {
 
 	// Load configuration if it exists
 	paths := app.DataManager.GetPaths()
-	if cfg, err := config.Load(paths.ConfigFile); err != nil {
+	if cfg, err := config.LoadGlobalConfig(paths.ConfigFile); err != nil {
 		log.Printf("No configuration found, starting with empty config: %v", err)
 	} else {
 		app.Config = cfg

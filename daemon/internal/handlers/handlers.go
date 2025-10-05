@@ -15,7 +15,8 @@ import (
 
 // App represents the application with its dependencies
 type App struct {
-	Config         *config.Config
+	Config         *config.GlobalConfig
+	Clouds         []config.CloudConfig
 	StartTime      time.Time
 	DataManager    *data.Manager
 	DnsmasqManager *dnsmasq.ConfigGenerator
@@ -61,7 +62,7 @@ func (app *App) GetConfigHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Always reload config from file on each request
 	paths := app.DataManager.GetPaths()
-	cfg, err := config.Load(paths.ConfigFile)
+	cfg, err := config.LoadGlobalConfig(paths.ConfigFile)
 	if err != nil {
 		log.Printf("Failed to load config from file: %v", err)
 		response := map[string]interface{}{
@@ -100,7 +101,7 @@ func (app *App) CreateConfigHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var newConfig config.Config
+	var newConfig config.GlobalConfig
 	if err := json.NewDecoder(r.Body).Decode(&newConfig); err != nil {
 		http.Error(w, "Invalid JSON", http.StatusBadRequest)
 		return
@@ -118,7 +119,7 @@ func (app *App) CreateConfigHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Persist config to file
 	paths := app.DataManager.GetPaths()
-	if err := config.Save(app.Config, paths.ConfigFile); err != nil {
+	if err := config.SaveGlobalConfig(app.Config, paths.ConfigFile); err != nil {
 		log.Printf("Failed to save config: %v", err)
 		http.Error(w, "Failed to save config", http.StatusInternalServerError)
 		return
@@ -136,7 +137,7 @@ func (app *App) UpdateConfigHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var newConfig config.Config
+	var newConfig config.GlobalConfig
 	if err := json.NewDecoder(r.Body).Decode(&newConfig); err != nil {
 		http.Error(w, "Invalid JSON", http.StatusBadRequest)
 		return
@@ -146,14 +147,14 @@ func (app *App) UpdateConfigHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Persist config to file
 	paths := app.DataManager.GetPaths()
-	if err := config.Save(app.Config, paths.ConfigFile); err != nil {
+	if err := config.SaveGlobalConfig(app.Config, paths.ConfigFile); err != nil {
 		log.Printf("Failed to save config: %v", err)
 		http.Error(w, "Failed to save config", http.StatusInternalServerError)
 		return
 	}
 
 	// Regenerate and apply dnsmasq config
-	if err := app.DnsmasqManager.WriteConfig(app.Config, paths.DnsmasqConf); err != nil {
+	if err := app.DnsmasqManager.WriteConfig(app.Config, app.Clouds, paths.DnsmasqConf); err != nil {
 		log.Printf("Failed to update dnsmasq config: %v", err)
 		http.Error(w, "Failed to update dnsmasq config", http.StatusInternalServerError)
 		return
@@ -213,7 +214,7 @@ func (app *App) UpdateConfigYamlHandler(w http.ResponseWriter, r *http.Request) 
 	}
 
 	// Try to reload the config to validate it and update the in-memory config
-	newConfig, err := config.Load(paths.ConfigFile)
+	newConfig, err := config.LoadGlobalConfig(paths.ConfigFile)
 	if err != nil {
 		log.Printf("Warning: Saved YAML config but failed to parse it: %v", err)
 		// File was written but parsing failed - this is a validation warning
@@ -230,7 +231,7 @@ func (app *App) UpdateConfigYamlHandler(w http.ResponseWriter, r *http.Request) 
 	app.Config = newConfig
 
 	// Try to regenerate dnsmasq config if the new config is valid
-	if err := app.DnsmasqManager.WriteConfig(app.Config, paths.DnsmasqConf); err != nil {
+	if err := app.DnsmasqManager.WriteConfig(app.Config, app.Clouds, paths.DnsmasqConf); err != nil {
 		log.Printf("Warning: Failed to update dnsmasq config: %v", err)
 		// Config was saved but dnsmasq update failed
 		w.Header().Set("Content-Type", "application/json")

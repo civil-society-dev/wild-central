@@ -13,7 +13,7 @@ func (app *App) GetDnsmasqConfigHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	config := app.DnsmasqManager.Generate(app.Config)
+	config := app.DnsmasqManager.Generate(app.Config, app.Clouds)
 	w.Header().Set("Content-Type", "text/plain")
 	w.Write([]byte(config))
 }
@@ -27,7 +27,7 @@ func (app *App) RestartDnsmasqHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Update dnsmasq config first
 	paths := app.DataManager.GetPaths()
-	if err := app.DnsmasqManager.WriteConfig(app.Config, paths.DnsmasqConf); err != nil {
+	if err := app.DnsmasqManager.WriteConfig(app.Config, app.Clouds, paths.DnsmasqConf); err != nil {
 		log.Printf("Failed to update dnsmasq config: %v", err)
 		http.Error(w, "Failed to update dnsmasq config", http.StatusInternalServerError)
 		return

@@ -1,6 +1,0 @@
-.wildcloud
-secrets.yaml
-backup/
-.working
-setup/cluster-nodes/generated/talosconfig
-.kubeconfig

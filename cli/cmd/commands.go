@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/r3labs/sse/v2"
 	"github.com/spf13/cobra"
 
 	"github.com/wild-cloud/wild-central/wild/internal/config"
@@ -259,7 +260,7 @@ var nodeShowCmd = &cobra.Command{
 	Use:   "show <hostname>",
 	Short: "Show node details",
 	Args:  cobra.ExactArgs(1),
-	RunE: func(cmd *cobra.Command, args []string) error{
+	RunE: func(cmd *cobra.Command, args []string) error {
 		inst, err := getInstanceName()
 		if err != nil {
 			return err
@@ -602,15 +603,40 @@ type ConfigUpdate struct {
 	Value interface{} `json:"value"`
 }
 
+var (
+	fetchFlag    bool
+	noDeployFlag bool
+)
+
 var serviceInstallCmd = &cobra.Command{
 	Use:   "install <service>",
 	Short: "Install a service with interactive configuration",
-	Long: `Install a service by:
-1. Fetching the service manifest
-2. Validating required configuration
-3. Prompting for missing service configuration
-4. Updating instance configuration
-5. Installing the service`,
+	Long: `Install and configure a cluster service.
+
+This command orchestrates the complete service installation lifecycle:
+  1. Fetch service files from Wild Cloud Directory (if needed or --fetch)
+  2. Validate configuration requirements
+  3. Prompt for any missing service configuration
+  4. Update instance configuration
+  5. Compile templates using gomplate
+  6. Deploy service to cluster (unless --no-deploy)
+
+Examples:
+  # Configure and deploy (most common)
+  wild service install metallb
+
+  # Fetch fresh templates and deploy
+  wild service install metallb --fetch
+
+  # Configure only, skip deployment
+  wild service install metallb --no-deploy
+
+  # Fetch fresh templates, configure only
+  wild service install metallb --fetch --no-deploy
+
+  # Use cached templates (default if files exist)
+  wild service install traefik
+`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		serviceName := args[0]
@@ -632,6 +658,7 @@ var serviceInstallCmd = &cobra.Command{
 		// Parse manifest
 		var manifest ServiceManifest
 		manifestData := manifestResp.Data
+		// API returns camelCase field names
 		if name, ok := manifestData["name"].(string); ok {
 			manifest.Name = name
 		}
@@ -774,23 +801,44 @@ var serviceInstallCmd = &cobra.Command{
 			fmt.Printf("Configuration updated (%d values)\n", len(updates))
 		}
 
-		// Step 6: Install service
-		fmt.Println("\nInstalling service...")
+		// Step 6: Install service with lifecycle control
+		if noDeployFlag {
+			fmt.Println("\nConfiguring service...")
+		} else {
+			fmt.Println("\nInstalling service...")
+		}
+
 		installResp, err := apiClient.Post(
 			fmt.Sprintf("/api/v1/instances/%s/services", inst),
 			map[string]interface{}{
 				"name":   serviceName,
-				"deploy": true,
+				"fetch":  fetchFlag,
+				"deploy": !noDeployFlag,
 			},
 		)
 		if err != nil {
 			return fmt.Errorf("failed to install service: %w", err)
 		}
 
-		fmt.Printf("\nService installation started: %s\n", serviceName)
-		if opID := installResp.GetString("operation_id"); opID != "" {
-			fmt.Printf("Operation ID: %s\n", opID)
-			fmt.Printf("Monitor with: wild operation get %s\n", opID)
+		// Show appropriate success message
+		if noDeployFlag {
+			fmt.Printf("\n✓ Service configured: %s\n", serviceName)
+			fmt.Printf("  Templates compiled and ready to deploy\n")
+			fmt.Printf("  To deploy later, run: wild service install %s\n", serviceName)
+		} else {
+			// Stream installation output
+			opID := installResp.GetString("operation_id")
+			if opID != "" {
+				fmt.Printf("Installing service: %s\n\n", serviceName)
+				if err := streamOperationOutput(opID); err != nil {
+					// If streaming fails, show operation ID for manual monitoring
+					fmt.Printf("\nCouldn't stream output: %v\n", err)
+					fmt.Printf("Operation ID: %s\n", opID)
+					fmt.Printf("Monitor with: wild operation get %s\n", opID)
+				} else {
+					fmt.Printf("\n✓ Service installed successfully: %s\n", serviceName)
+				}
+			}
 		}
 
 		return nil
@@ -798,6 +846,9 @@ var serviceInstallCmd = &cobra.Command{
 }
 
 func init() {
+	serviceInstallCmd.Flags().BoolVar(&fetchFlag, "fetch", false, "Fetch fresh templates from directory before installing")
+	serviceInstallCmd.Flags().BoolVar(&noDeployFlag, "no-deploy", false, "Configure and compile only, skip deployment")
+
 	serviceCmd.AddCommand(serviceListCmd)
 	serviceCmd.AddCommand(serviceInstallCmd)
 }
@@ -1059,7 +1110,7 @@ var operationGetCmd = &cobra.Command{
 	Short: "Get operation status",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		resp, err := apiClient.Get(fmt.Sprintf("/api/v1/operations/%s", args[0]))
+		resp, err := apiClient.Get(fmt.Sprintf("/api/v1/operations/%s?instance=%s", args[0], instanceName))
 		if err != nil {
 			return err
 		}
@@ -1068,7 +1119,7 @@ var operationGetCmd = &cobra.Command{
 			return printJSON(resp.Data)
 		}
 
-		return printYAML(resp.GetMap("operation"))
+		return printYAML(resp.Data)
 	},
 }
 
@@ -1106,4 +1157,64 @@ var operationListCmd = &cobra.Command{
 func init() {
 	operationCmd.AddCommand(operationGetCmd)
 	operationCmd.AddCommand(operationListCmd)
+}
+
+// streamOperationOutput streams operation output via SSE
+func streamOperationOutput(opID string) error {
+	// Get base URL
+	baseURL := daemonURL
+	if baseURL == "" {
+		baseURL = config.GetDaemonURL()
+	}
+
+	// Connect to SSE stream
+	url := fmt.Sprintf("%s/api/v1/operations/%s/stream?instance=%s", baseURL, opID, instanceName)
+	client := sse.NewClient(url)
+	events := make(chan *sse.Event)
+
+	err := client.SubscribeChan("messages", events)
+	if err != nil {
+		return fmt.Errorf("failed to subscribe to SSE: %w", err)
+	}
+
+	// Poll for completion in background
+	done := make(chan bool, 1)
+	go func() {
+		ticker := time.NewTicker(500 * time.Millisecond)
+		defer ticker.Stop()
+		for range ticker.C {
+			resp, err := apiClient.Get(fmt.Sprintf("/api/v1/operations/%s?instance=%s", opID, instanceName))
+			if err == nil {
+				status := resp.GetString("status")
+				if status == "completed" || status == "failed" {
+					time.Sleep(500 * time.Millisecond) // Give SSE time to flush
+					done <- true
+					return
+				}
+			}
+		}
+	}()
+
+	// Stream events
+	for {
+		select {
+		case msg, ok := <-events:
+			if !ok {
+				// Channel closed
+				return nil
+			}
+			if msg != nil {
+				// Check for completion event
+				if string(msg.Event) == "complete" {
+					return nil
+				}
+				// Print data with newline
+				if msg.Data != nil {
+					fmt.Println(string(msg.Data))
+				}
+			}
+		case <-done:
+			return nil
+		}
+	}
 }

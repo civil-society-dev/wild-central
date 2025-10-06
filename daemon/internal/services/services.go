@@ -5,7 +5,11 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
+	"gopkg.in/yaml.v3"
+
+	"github.com/wild-cloud/wild-central/daemon/internal/operations"
 	"github.com/wild-cloud/wild-central/daemon/internal/storage"
 	"github.com/wild-cloud/wild-central/daemon/internal/tools"
 )
@@ -67,7 +71,7 @@ var serviceDeployments = map[string]struct {
 	"longhorn":               {"longhorn-system", "longhorn-ui"},
 	"metallb":                {"metallb-system", "controller"},
 	"nfs":                    {"nfs-system", "nfs-server"},
-	"node-feature-discovery": {"node-feature-discovery", "node-feature-discovery"},
+	"node-feature-discovery": {"node-feature-discovery", "node-feature-discovery-master"},
 	"nvidia-device-plugin":   {"nvidia-device-plugin", "nvidia-device-plugin-daemonset"},
 	"smtp":                   {"smtp-system", "smtp"},
 	"traefik":                {"traefik", "traefik"},
@@ -90,19 +94,17 @@ func (m *Manager) checkServiceStatus(instanceName, serviceName string) string {
 
 	var namespace, deploymentName string
 
-	// Try to get from manifest first
-	if manifest, ok := m.manifests[serviceName]; ok {
+	// Check hardcoded map first for deployment name (has correct names)
+	if deployment, ok := serviceDeployments[serviceName]; ok {
+		namespace = deployment.namespace
+		deploymentName = deployment.deploymentName
+	} else if manifest, ok := m.manifests[serviceName]; ok {
+		// Fall back to manifest if not in hardcoded map
 		namespace = manifest.Namespace
 		deploymentName = manifest.GetDeploymentName()
 	} else {
-		// Fall back to hardcoded map for services not yet migrated
-		deployment, ok := serviceDeployments[serviceName]
-		if !ok {
-			// Service not found anywhere, assume not deployed
-			return "not-deployed"
-		}
-		namespace = deployment.namespace
-		deploymentName = deployment.deploymentName
+		// Service not found anywhere, assume not deployed
+		return "not-deployed"
 	}
 
 	kubectl := tools.NewKubectl(kubeconfigPath)
@@ -179,38 +181,41 @@ func (m *Manager) Get(instanceName, serviceName string) (*Service, error) {
 	return service, nil
 }
 
-// Install installs a base service
-func (m *Manager) Install(instanceName, serviceName string, fetch, deploy bool) error {
-	// Get service manifests
-	serviceDir := filepath.Join(m.servicesDir, serviceName)
-	if !storage.FileExists(serviceDir) {
-		return fmt.Errorf("service %s not found", serviceName)
+// Install orchestrates the complete service installation lifecycle
+func (m *Manager) Install(instanceName, serviceName string, fetch, deploy bool, opID string, broadcaster *operations.Broadcaster) error {
+	// Phase 1: Fetch (if requested or files don't exist)
+	if fetch || !m.serviceFilesExist(instanceName, serviceName) {
+		if err := m.Fetch(instanceName, serviceName); err != nil {
+			return fmt.Errorf("fetch failed: %w", err)
+		}
 	}
 
-	manifestsFile := filepath.Join(serviceDir, "manifests.yaml")
-	if !storage.FileExists(manifestsFile) {
-		return fmt.Errorf("service %s has no manifests", serviceName)
+	// Phase 2: Validate Configuration
+	// Configuration happens via API before calling install
+	// Validate all required config is set
+	if err := m.validateConfig(instanceName, serviceName); err != nil {
+		return fmt.Errorf("configuration incomplete: %w", err)
 	}
 
-	if !deploy {
-		// Just configuration, don't deploy
-		return nil
+	// Phase 3: Compile templates
+	if err := m.Compile(instanceName, serviceName); err != nil {
+		return fmt.Errorf("template compilation failed: %w", err)
 	}
 
-	// Apply manifests
-	cmd := exec.Command("kubectl", "apply", "-f", manifestsFile)
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("failed to install service: %w\nOutput: %s", err, string(output))
+	// Phase 4: Deploy (if requested)
+	if deploy {
+		if err := m.Deploy(instanceName, serviceName, opID, broadcaster); err != nil {
+			return fmt.Errorf("deployment failed: %w", err)
+		}
 	}
 
 	return nil
 }
 
 // InstallAll installs all base services
-func (m *Manager) InstallAll(instanceName string, fetch, deploy bool) error {
+func (m *Manager) InstallAll(instanceName string, fetch, deploy bool, opID string, broadcaster *operations.Broadcaster) error {
 	for _, serviceName := range BaseServices {
-		if err := m.Install(instanceName, serviceName, fetch, deploy); err != nil {
+		if err := m.Install(instanceName, serviceName, fetch, deploy, opID, broadcaster); err != nil {
 			return fmt.Errorf("failed to install %s: %w", serviceName, err)
 		}
 	}
@@ -277,4 +282,323 @@ func (m *Manager) GetConfigReferences(serviceName string) ([]string, error) {
 		return nil, err
 	}
 	return manifest.ConfigReferences, nil
+}
+
+// Fetch copies service files from directory to instance
+func (m *Manager) Fetch(instanceName, serviceName string) error {
+	// 1. Validate service exists in directory
+	sourceDir := filepath.Join(m.servicesDir, serviceName)
+	if !dirExists(sourceDir) {
+		return fmt.Errorf("service %s not found in directory", serviceName)
+	}
+
+	// 2. Create instance service directory
+	instanceDir := filepath.Join(m.dataDir, "instances", instanceName,
+		"setup", "cluster-services", serviceName)
+	if err := os.MkdirAll(instanceDir, 0755); err != nil {
+		return fmt.Errorf("failed to create service directory: %w", err)
+	}
+
+	// 3. Copy files:
+	//    - README.md (if exists, optional)
+	//    - install.sh (required)
+	//    - kustomize.template/* (if exists, optional)
+
+	// Copy README.md
+	copyFileIfExists(filepath.Join(sourceDir, "README.md"),
+		filepath.Join(instanceDir, "README.md"))
+
+	// Copy install.sh (required)
+	installSh := filepath.Join(sourceDir, "install.sh")
+	if !fileExists(installSh) {
+		return fmt.Errorf("install.sh not found for service %s", serviceName)
+	}
+	if err := copyFile(installSh, filepath.Join(instanceDir, "install.sh")); err != nil {
+		return fmt.Errorf("failed to copy install.sh: %w", err)
+	}
+	// Make install.sh executable
+	os.Chmod(filepath.Join(instanceDir, "install.sh"), 0755)
+
+	// Copy kustomize.template directory if it exists
+	templateDir := filepath.Join(sourceDir, "kustomize.template")
+	if dirExists(templateDir) {
+		destTemplateDir := filepath.Join(instanceDir, "kustomize.template")
+		if err := copyDir(templateDir, destTemplateDir); err != nil {
+			return fmt.Errorf("failed to copy templates: %w", err)
+		}
+	}
+
+	return nil
+}
+
+// serviceFilesExist checks if service files exist in the instance
+func (m *Manager) serviceFilesExist(instanceName, serviceName string) bool {
+	serviceDir := filepath.Join(m.dataDir, "instances", instanceName,
+		"setup", "cluster-services", serviceName)
+	installSh := filepath.Join(serviceDir, "install.sh")
+	return fileExists(installSh)
+}
+
+// Helper functions for file operations
+
+func fileExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
+}
+
+func dirExists(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && info.IsDir()
+}
+
+func copyFile(src, dst string) error {
+	input, err := os.ReadFile(src)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(dst, input, 0644)
+}
+
+func copyFileIfExists(src, dst string) error {
+	if !fileExists(src) {
+		return nil
+	}
+	return copyFile(src, dst)
+}
+
+func copyDir(src, dst string) error {
+	// Create destination directory
+	if err := os.MkdirAll(dst, 0755); err != nil {
+		return err
+	}
+
+	// Read source directory
+	entries, err := os.ReadDir(src)
+	if err != nil {
+		return err
+	}
+
+	// Copy each entry
+	for _, entry := range entries {
+		srcPath := filepath.Join(src, entry.Name())
+		dstPath := filepath.Join(dst, entry.Name())
+
+		if entry.IsDir() {
+			if err := copyDir(srcPath, dstPath); err != nil {
+				return err
+			}
+		} else {
+			if err := copyFile(srcPath, dstPath); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+// Compile processes gomplate templates into final Kubernetes manifests
+func (m *Manager) Compile(instanceName, serviceName string) error {
+	instanceDir := filepath.Join(m.dataDir, "instances", instanceName)
+	serviceDir := filepath.Join(instanceDir, "setup", "cluster-services", serviceName)
+	templateDir := filepath.Join(serviceDir, "kustomize.template")
+	outputDir := filepath.Join(serviceDir, "kustomize")
+
+	// 1. Check if templates exist
+	if !dirExists(templateDir) {
+		// No templates to compile - this is OK for some services
+		return nil
+	}
+
+	// 2. Load config and secrets files
+	configFile := filepath.Join(instanceDir, "config.yaml")
+	secretsFile := filepath.Join(instanceDir, "secrets.yaml")
+
+	if !fileExists(configFile) {
+		return fmt.Errorf("config.yaml not found for instance %s", instanceName)
+	}
+
+	// 3. Create output directory
+	if err := os.MkdirAll(outputDir, 0755); err != nil {
+		return fmt.Errorf("failed to create output directory: %w", err)
+	}
+
+	// 4. Process templates with gomplate
+	// Build gomplate command
+	gomplateArgs := []string{
+		"-c", fmt.Sprintf(".=%s", configFile),
+	}
+
+	// Add secrets context if file exists
+	if fileExists(secretsFile) {
+		gomplateArgs = append(gomplateArgs, "-c", fmt.Sprintf("secrets=%s", secretsFile))
+	}
+
+	// Process each template file recursively
+	err := filepath.Walk(templateDir, func(srcPath string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		// Skip directories
+		if info.IsDir() {
+			return nil
+		}
+
+		// Calculate relative path and destination
+		relPath, _ := filepath.Rel(templateDir, srcPath)
+		dstPath := filepath.Join(outputDir, relPath)
+
+		// Create destination directory
+		if err := os.MkdirAll(filepath.Dir(dstPath), 0755); err != nil {
+			return err
+		}
+
+		// Run gomplate on this file
+		args := append(gomplateArgs, "-f", srcPath, "-o", dstPath)
+		cmd := exec.Command("gomplate", args...)
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			return fmt.Errorf("gomplate failed for %s: %w\nOutput: %s", relPath, err, output)
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return fmt.Errorf("template compilation failed: %w", err)
+	}
+
+	return nil
+}
+
+// Deploy executes the service-specific install.sh script
+// opID and broadcaster are optional - if provided, output will be streamed to SSE clients
+func (m *Manager) Deploy(instanceName, serviceName, opID string, broadcaster *operations.Broadcaster) error {
+	instanceDir := filepath.Join(m.dataDir, "instances", instanceName)
+	serviceDir := filepath.Join(instanceDir, "setup", "cluster-services", serviceName)
+	installScript := filepath.Join(serviceDir, "install.sh")
+
+	// 1. Validate install.sh exists
+	if !fileExists(installScript) {
+		return fmt.Errorf("install.sh not found for service %s", serviceName)
+	}
+
+	// 2. Set up environment
+	kubeconfigPath := filepath.Join(instanceDir, ".kubeconfig")
+	if !fileExists(kubeconfigPath) {
+		return fmt.Errorf("kubeconfig not found - cluster may not be bootstrapped")
+	}
+
+	// Build environment - append to existing environment
+	// This ensures kubectl and other tools are available
+	env := os.Environ()
+	env = append(env,
+		fmt.Sprintf("WILD_INSTANCE=%s", instanceName),
+		fmt.Sprintf("WILD_CENTRAL_DATA=%s", m.dataDir),
+		fmt.Sprintf("KUBECONFIG=%s", kubeconfigPath),
+	)
+
+	// 3. Set up output streaming
+	var outputWriter *broadcastWriter
+	if opID != "" {
+		// Create log directory
+		logDir := filepath.Join(instanceDir, "operations", opID)
+		if err := os.MkdirAll(logDir, 0755); err != nil {
+			return fmt.Errorf("failed to create log directory: %w", err)
+		}
+
+		// Create log file
+		logFile, err := os.Create(filepath.Join(logDir, "output.log"))
+		if err != nil {
+			return fmt.Errorf("failed to create log file: %w", err)
+		}
+		defer logFile.Close()
+
+		// Create broadcast writer
+		outputWriter = newBroadcastWriter(logFile, broadcaster, opID)
+	}
+
+	// 4. Execute install.sh
+	cmd := exec.Command("/bin/bash", installScript)
+	cmd.Dir = serviceDir
+	cmd.Env = env
+
+	if outputWriter != nil {
+		// Stream output to file and SSE clients
+		cmd.Stdout = outputWriter
+		cmd.Stderr = outputWriter
+		err := cmd.Run()
+		if broadcaster != nil {
+			outputWriter.Flush()            // Flush any remaining buffered data
+			broadcaster.Close(opID)         // Close all SSE clients
+		}
+		return err
+	} else {
+		// Fallback: capture output for logging (backward compatibility)
+		output, err := cmd.CombinedOutput()
+		fmt.Printf("=== Deploy %s output ===\n%s\n=== End output ===\n", serviceName, output)
+		if err != nil {
+			return fmt.Errorf("deployment failed: %w\nOutput: %s", err, output)
+		}
+		return nil
+	}
+}
+
+// validateConfig checks that all required config is set for a service
+func (m *Manager) validateConfig(instanceName, serviceName string) error {
+	manifest, err := m.GetManifest(serviceName)
+	if err != nil {
+		return err // Service has no manifest
+	}
+
+	// Load instance config
+	instanceDir := filepath.Join(m.dataDir, "instances", instanceName)
+	configFile := filepath.Join(instanceDir, "config.yaml")
+
+	configData, err := os.ReadFile(configFile)
+	if err != nil {
+		return fmt.Errorf("failed to read config: %w", err)
+	}
+
+	var config map[string]interface{}
+	if err := yaml.Unmarshal(configData, &config); err != nil {
+		return fmt.Errorf("failed to parse config: %w", err)
+	}
+
+	// Check all required paths exist
+	missing := []string{}
+	allPaths := append(manifest.ConfigReferences, manifest.GetRequiredConfig()...)
+
+	for _, path := range allPaths {
+		if getNestedValue(config, path) == nil {
+			missing = append(missing, path)
+		}
+	}
+
+	if len(missing) > 0 {
+		return fmt.Errorf("missing required configuration: %v", missing)
+	}
+
+	return nil
+}
+
+// getNestedValue retrieves a value from nested map using dot notation
+func getNestedValue(data map[string]interface{}, path string) interface{} {
+	keys := strings.Split(path, ".")
+	current := data
+
+	for i, key := range keys {
+		if i == len(keys)-1 {
+			return current[key]
+		}
+
+		if next, ok := current[key].(map[string]interface{}); ok {
+			current = next
+		} else {
+			return nil
+		}
+	}
+
+	return nil
 }

@@ -103,7 +103,7 @@ func (api *API) ServicesInstall(w http.ResponseWriter, r *http.Request) {
 		servicesMgr := services.NewManager(api.dataDir, filepath.Join(api.directoryPath, "setup", "cluster-services"))
 		opsMgr.UpdateStatus(instanceName, opID, "running")
 
-		if err := servicesMgr.Install(instanceName, req.Name, req.Fetch, req.Deploy); err != nil {
+		if err := servicesMgr.Install(instanceName, req.Name, req.Fetch, req.Deploy, opID, api.broadcaster); err != nil {
 			opsMgr.Update(instanceName, opID, "failed", err.Error(), 0)
 		} else {
 			opsMgr.Update(instanceName, opID, "completed", "Service installed", 100)
@@ -151,7 +151,7 @@ func (api *API) ServicesInstallAll(w http.ResponseWriter, r *http.Request) {
 		servicesMgr := services.NewManager(api.dataDir, filepath.Join(api.directoryPath, "setup", "cluster-services"))
 		opsMgr.UpdateStatus(instanceName, opID, "running")
 
-		if err := servicesMgr.InstallAll(instanceName, req.Fetch, req.Deploy); err != nil {
+		if err := servicesMgr.InstallAll(instanceName, req.Fetch, req.Deploy, opID, api.broadcaster); err != nil {
 			opsMgr.Update(instanceName, opID, "failed", err.Error(), 0)
 		} else {
 			opsMgr.Update(instanceName, opID, "completed", "All services installed", 100)
@@ -338,4 +338,76 @@ func getNestedValue(data map[string]interface{}, path string) interface{} {
 	}
 
 	return nil
+}
+
+// ServicesFetch handles fetching service files to instance
+func (api *API) ServicesFetch(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	instanceName := vars["name"]
+	serviceName := vars["service"]
+
+	// Validate instance exists
+	if !api.instance.InstanceExists(instanceName) {
+		respondError(w, http.StatusNotFound, fmt.Sprintf("Instance '%s' not found", instanceName))
+		return
+	}
+
+	// Fetch service files
+	servicesMgr := services.NewManager(api.dataDir, filepath.Join(api.directoryPath, "setup", "cluster-services"))
+	if err := servicesMgr.Fetch(instanceName, serviceName); err != nil {
+		respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to fetch service: %v", err))
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]string{
+		"message": fmt.Sprintf("Service %s files fetched successfully", serviceName),
+	})
+}
+
+// ServicesCompile handles template compilation
+func (api *API) ServicesCompile(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	instanceName := vars["name"]
+	serviceName := vars["service"]
+
+	// Validate instance exists
+	if !api.instance.InstanceExists(instanceName) {
+		respondError(w, http.StatusNotFound, fmt.Sprintf("Instance '%s' not found", instanceName))
+		return
+	}
+
+	// Compile templates
+	servicesMgr := services.NewManager(api.dataDir, filepath.Join(api.directoryPath, "setup", "cluster-services"))
+	if err := servicesMgr.Compile(instanceName, serviceName); err != nil {
+		respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to compile templates: %v", err))
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]string{
+		"message": fmt.Sprintf("Templates compiled successfully for %s", serviceName),
+	})
+}
+
+// ServicesDeploy handles service deployment
+func (api *API) ServicesDeploy(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	instanceName := vars["name"]
+	serviceName := vars["service"]
+
+	// Validate instance exists
+	if !api.instance.InstanceExists(instanceName) {
+		respondError(w, http.StatusNotFound, fmt.Sprintf("Instance '%s' not found", instanceName))
+		return
+	}
+
+	// Deploy service (without operation tracking for standalone deploy)
+	servicesMgr := services.NewManager(api.dataDir, filepath.Join(api.directoryPath, "setup", "cluster-services"))
+	if err := servicesMgr.Deploy(instanceName, serviceName, "", nil); err != nil {
+		respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to deploy service: %v", err))
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]string{
+		"message": fmt.Sprintf("Service %s deployed successfully", serviceName),
+	})
 }

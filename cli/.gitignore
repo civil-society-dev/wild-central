@@ -1,7 +1,7 @@
-# Daemon build artifacts
+# Cli build artifacts
 build/
 dist/
-wildd
+wild
 *.deb
 __debug*
 

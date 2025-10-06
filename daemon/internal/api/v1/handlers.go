@@ -14,6 +14,7 @@ import (
 	"github.com/wild-cloud/wild-central/daemon/internal/config"
 	"github.com/wild-cloud/wild-central/daemon/internal/context"
 	"github.com/wild-cloud/wild-central/daemon/internal/instance"
+	"github.com/wild-cloud/wild-central/daemon/internal/operations"
 	"github.com/wild-cloud/wild-central/daemon/internal/secrets"
 )
 
@@ -26,6 +27,7 @@ type API struct {
 	secrets       *secrets.Manager
 	context       *context.Manager
 	instance      *instance.Manager
+	broadcaster   *operations.Broadcaster // SSE broadcaster for operation output
 }
 
 // NewAPI creates a new API handler with all dependencies
@@ -47,6 +49,7 @@ func NewAPI(dataDir, directoryPath string) (*API, error) {
 		secrets:       secrets.NewManager(),
 		context:       context.NewManager(dataDir),
 		instance:      instance.NewManager(dataDir),
+		broadcaster:   operations.NewBroadcaster(),
 	}, nil
 }
 
@@ -90,6 +93,7 @@ func (api *API) RegisterRoutes(r *mux.Router) {
 	// Phase 2: Operations
 	r.HandleFunc("/api/v1/instances/{name}/operations", api.OperationList).Methods("GET")
 	r.HandleFunc("/api/v1/operations/{id}", api.OperationGet).Methods("GET")
+	r.HandleFunc("/api/v1/operations/{id}/stream", api.OperationStream).Methods("GET")
 	r.HandleFunc("/api/v1/operations/{id}/cancel", api.OperationCancel).Methods("POST")
 
 	// Phase 3: Cluster operations
@@ -111,6 +115,11 @@ func (api *API) RegisterRoutes(r *mux.Router) {
 	r.HandleFunc("/api/v1/services/{service}/manifest", api.ServicesGetManifest).Methods("GET")
 	r.HandleFunc("/api/v1/services/{service}/config", api.ServicesGetConfig).Methods("GET")
 	r.HandleFunc("/api/v1/instances/{name}/services/{service}/config", api.ServicesGetInstanceConfig).Methods("GET")
+
+	// Service lifecycle endpoints
+	r.HandleFunc("/api/v1/instances/{name}/services/{service}/fetch", api.ServicesFetch).Methods("POST")
+	r.HandleFunc("/api/v1/instances/{name}/services/{service}/compile", api.ServicesCompile).Methods("POST")
+	r.HandleFunc("/api/v1/instances/{name}/services/{service}/deploy", api.ServicesDeploy).Methods("POST")
 
 	// Phase 4: Apps
 	r.HandleFunc("/api/v1/apps", api.AppsListAvailable).Methods("GET")

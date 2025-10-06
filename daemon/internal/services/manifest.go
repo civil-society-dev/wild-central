@@ -13,21 +13,21 @@ import (
 // ServiceManifest defines a service deployment configuration
 // Matches the simple app manifest pattern
 type ServiceManifest struct {
-	Name             string                      `yaml:"name"`
-	Description      string                      `yaml:"description"`
-	Namespace        string                      `yaml:"namespace"`
-	Category         string                      `yaml:"category,omitempty"`
-	Dependencies     []string                    `yaml:"dependencies,omitempty"`
-	ConfigReferences []string                    `yaml:"configReferences,omitempty"`
-	ServiceConfig    map[string]ConfigDefinition `yaml:"serviceConfig,omitempty"`
+	Name             string                      `yaml:"name" json:"name"`
+	Description      string                      `yaml:"description" json:"description"`
+	Namespace        string                      `yaml:"namespace" json:"namespace"`
+	Category         string                      `yaml:"category,omitempty" json:"category,omitempty"`
+	Dependencies     []string                    `yaml:"dependencies,omitempty" json:"dependencies,omitempty"`
+	ConfigReferences []string                    `yaml:"configReferences,omitempty" json:"configReferences,omitempty"`
+	ServiceConfig    map[string]ConfigDefinition `yaml:"serviceConfig,omitempty" json:"serviceConfig,omitempty"`
 }
 
 // ConfigDefinition defines config that should be prompted during service setup
 type ConfigDefinition struct {
-	Path    string `yaml:"path"`           // Config path to set
-	Prompt  string `yaml:"prompt"`         // User prompt text
-	Default string `yaml:"default"`        // Default value (supports templates)
-	Type    string `yaml:"type,omitempty"` // Value type: string|int|bool (default: string)
+	Path    string `yaml:"path" json:"path"`               // Config path to set
+	Prompt  string `yaml:"prompt" json:"prompt"`           // User prompt text
+	Default string `yaml:"default" json:"default"`         // Default value (supports templates)
+	Type    string `yaml:"type,omitempty" json:"type,omitempty"` // Value type: string|int|bool (default: string)
 }
 
 // LoadManifest reads and parses a service manifest from a service directory

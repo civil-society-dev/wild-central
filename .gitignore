@@ -1,6 +1,7 @@
 # Amplifier
 amplifier/
 tools/
+.data
 
 # Python artifacts
 __pycache__/

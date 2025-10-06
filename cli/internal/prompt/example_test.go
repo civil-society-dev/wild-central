@@ -2,8 +2,7 @@ package prompt_test
 
 import (
 	"fmt"
-
-	"github.com/wild-cloud/wild-central/wild/internal/prompt"
+	// "github.com/wild-cloud/wild-central/wild/internal/prompt"
 )
 
 // ExampleString demonstrates the String prompt function

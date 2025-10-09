@@ -1,10 +1,13 @@
 package cmd
 
 import (
-	"os"
 	"fmt"
+	"os"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
+
+	"github.com/wild-cloud/wild-central/wild/internal/config"
 )
 
 var instanceCmd = &cobra.Command{
@@ -226,6 +229,41 @@ The instance can still be overridden with the --instance flag.`,
 	},
 }
 
+var instanceEnvCmd = &cobra.Command{
+	Use:   "env",
+	Short: "Output environment variables for current instance",
+	Long: `Output export commands for TALOSCONFIG and KUBECONFIG.
+
+Usage:
+  source <(wild instance env)
+
+This will set environment variables for the current instance's talosconfig and kubeconfig files if they exist.`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		// Get current instance
+		inst, err := getInstanceName()
+		if err != nil {
+			return err
+		}
+
+		// Check for talosconfig and kubeconfig files
+		dataDir := config.GetWildCLIDataDir()
+		instanceDir := filepath.Join(dataDir, "instances", inst)
+
+		// Check for talosconfig
+		talosconfigPath := filepath.Join(instanceDir, "talosconfig")
+		if _, err := os.Stat(talosconfigPath); err == nil {
+			fmt.Printf("export TALOSCONFIG=%s\n", talosconfigPath)
+		}
+
+		// Check for kubeconfig
+		kubeconfigPath := filepath.Join(instanceDir, "kubeconfig")
+		if _, err := os.Stat(kubeconfigPath); err == nil {
+			fmt.Printf("export KUBECONFIG=%s\n", kubeconfigPath)
+		}
+
+		return nil
+	},
+}
 
 func init() {
 	instanceCmd.AddCommand(instanceCreateCmd)
@@ -233,4 +271,6 @@ func init() {
 	instanceCmd.AddCommand(instanceShowCmd)
 	instanceCmd.AddCommand(instanceDeleteCmd)
 	instanceCmd.AddCommand(instanceCurrentCmd)
+	instanceCmd.AddCommand(instanceUseCmd)
+	instanceCmd.AddCommand(instanceEnvCmd)
 }

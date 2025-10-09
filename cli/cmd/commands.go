@@ -522,12 +522,101 @@ var clusterKubeconfigCmd = &cobra.Command{
 			return err
 		}
 
+		persist, _ := cmd.Flags().GetBool("persist")
+
 		resp, err := apiClient.Get(fmt.Sprintf("/api/v1/instances/%s/cluster/kubeconfig", inst))
 		if err != nil {
 			return err
 		}
 
-		fmt.Println(resp.GetString("kubeconfig"))
+		kubeconfigContent := resp.GetString("kubeconfig")
+
+		// If --persist flag is set, save to instance directory
+		if persist {
+			dataDir := config.GetWildCLIDataDir()
+			instanceDir := fmt.Sprintf("%s/instances/%s", dataDir, inst)
+
+			// Create instance directory if it doesn't exist
+			if err := os.MkdirAll(instanceDir, 0755); err != nil {
+				return fmt.Errorf("failed to create instance directory: %w", err)
+			}
+
+			kubeconfigPath := fmt.Sprintf("%s/kubeconfig", instanceDir)
+			if err := os.WriteFile(kubeconfigPath, []byte(kubeconfigContent), 0600); err != nil {
+				return fmt.Errorf("failed to write kubeconfig: %w", err)
+			}
+
+			fmt.Printf("Kubeconfig saved to %s\n", kubeconfigPath)
+			return nil
+		}
+
+		// Default behavior: print to stdout
+		fmt.Println(kubeconfigContent)
+		return nil
+	},
+}
+
+var clusterConfigGenerateCmd = &cobra.Command{
+	Use:   "config generate",
+	Short: "Generate cluster configuration",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		inst, err := getInstanceName()
+		if err != nil {
+			return err
+		}
+
+		resp, err := apiClient.Post(fmt.Sprintf("/api/v1/instances/%s/cluster/config/generate", inst), nil)
+		if err != nil {
+			return err
+		}
+
+		fmt.Println("Cluster configuration generated successfully")
+		if msg := resp.GetString("message"); msg != "" {
+			fmt.Println(msg)
+		}
+		return nil
+	},
+}
+
+var clusterTalosconfigCmd = &cobra.Command{
+	Use:   "talosconfig",
+	Short: "Get talosconfig",
+	RunE: func(cmd *cobra.Command, args []string) error {
+		inst, err := getInstanceName()
+		if err != nil {
+			return err
+		}
+
+		persist, _ := cmd.Flags().GetBool("persist")
+
+		resp, err := apiClient.Get(fmt.Sprintf("/api/v1/instances/%s/cluster/talosconfig", inst))
+		if err != nil {
+			return err
+		}
+
+		talosconfigContent := resp.GetString("talosconfig")
+
+		// If --persist flag is set, save to instance directory
+		if persist {
+			dataDir := config.GetWildCLIDataDir()
+			instanceDir := fmt.Sprintf("%s/instances/%s", dataDir, inst)
+
+			// Create instance directory if it doesn't exist
+			if err := os.MkdirAll(instanceDir, 0755); err != nil {
+				return fmt.Errorf("failed to create instance directory: %w", err)
+			}
+
+			talosconfigPath := fmt.Sprintf("%s/talosconfig", instanceDir)
+			if err := os.WriteFile(talosconfigPath, []byte(talosconfigContent), 0600); err != nil {
+				return fmt.Errorf("failed to write talosconfig: %w", err)
+			}
+
+			fmt.Printf("Talosconfig saved to %s\n", talosconfigPath)
+			return nil
+		}
+
+		// Default behavior: print to stdout
+		fmt.Println(talosconfigContent)
 		return nil
 	},
 }
@@ -537,6 +626,12 @@ func init() {
 	clusterCmd.AddCommand(clusterStatusCmd)
 	clusterCmd.AddCommand(clusterHealthCmd)
 	clusterCmd.AddCommand(clusterKubeconfigCmd)
+	clusterCmd.AddCommand(clusterConfigGenerateCmd)
+	clusterCmd.AddCommand(clusterTalosconfigCmd)
+
+	// Add --persist flags to config commands
+	clusterTalosconfigCmd.Flags().Bool("persist", false, "Save talosconfig to instance directory")
+	clusterKubeconfigCmd.Flags().Bool("persist", false, "Save kubeconfig to instance directory")
 }
 
 // Service commands

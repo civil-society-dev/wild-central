@@ -36,7 +36,6 @@ func NewManager(dataDir string, instanceName string) *Manager {
 // DiscoveredNode represents a discovered node on the network
 type DiscoveredNode struct {
 	IP              string `json:"ip"`
-	MAC             string `json:"mac"`
 	Hostname        string `json:"hostname,omitempty"`
 	MaintenanceMode bool   `json:"maintenance_mode"`
 	Version         string `json:"version,omitempty"`
@@ -173,7 +172,6 @@ func (m *Manager) probeNode(ip string) (*DiscoveredNode, error) {
 
 	return &DiscoveredNode{
 		IP:              ip,
-		MAC:             hwInfo.MAC,
 		MaintenanceMode: hwInfo.MaintenanceMode,
 		Version:         version,
 		Interface:       hwInfo.Interface,

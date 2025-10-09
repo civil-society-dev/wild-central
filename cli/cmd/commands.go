@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/r3labs/sse/v2"
@@ -198,12 +199,12 @@ var nodeDiscoverCmd = &cobra.Command{
 				}
 
 				fmt.Printf("\nFound %d node(s):\n\n", len(nodesFound))
-				fmt.Printf("%-15s  %-17s  %-12s  %-10s\n", "IP", "MAC", "INTERFACE", "VERSION")
-				fmt.Println("---------------------------------------------------------------")
+				fmt.Printf("%-15s  %-12s  %-10s\n", "IP", "INTERFACE", "VERSION")
+				fmt.Println("-----------------------------------------------")
 				for _, node := range nodesFound {
 					if m, ok := node.(map[string]interface{}); ok {
-						fmt.Printf("%-15s  %-17s  %-12s  %-10s\n",
-							m["ip"], m["mac"], m["interface"], m["version"])
+						fmt.Printf("%-15s  %-12s  %-10s\n",
+							m["ip"], m["interface"], m["version"])
 					}
 				}
 				return nil
@@ -244,12 +245,12 @@ var nodeListCmd = &cobra.Command{
 			return nil
 		}
 
-		fmt.Printf("%-17s  %-20s  %-12s  %-15s\n", "MAC", "HOSTNAME", "ROLE", "TARGET IP")
-		fmt.Println("-------------------------------------------------------------------------")
+		fmt.Printf("%-20s  %-12s  %-15s\n", "HOSTNAME", "ROLE", "TARGET IP")
+		fmt.Println("-----------------------------------------------------")
 		for _, node := range nodes {
 			if m, ok := node.(map[string]interface{}); ok {
-				fmt.Printf("%-17s  %-20s  %-12s  %-15s\n",
-					m["mac"], m["hostname"], m["role"], m["target_ip"])
+				fmt.Printf("%-20s  %-12s  %-15s\n",
+					m["hostname"], m["role"], m["target_ip"])
 			}
 		}
 		return nil
@@ -283,7 +284,6 @@ var nodeShowCmd = &cobra.Command{
 		fmt.Printf("Hostname:     %s\n", resp.GetString("hostname"))
 		fmt.Printf("Role:         %s\n", resp.GetString("role"))
 		fmt.Printf("Target IP:    %s\n", resp.GetString("target_ip"))
-		fmt.Printf("MAC:          %s\n", resp.GetString("mac"))
 		fmt.Printf("Disk:         %s\n", resp.GetString("disk"))
 		fmt.Printf("Interface:    %s\n", resp.GetString("interface"))
 		fmt.Printf("Version:      %s\n", resp.GetString("version"))
@@ -296,9 +296,9 @@ var nodeShowCmd = &cobra.Command{
 }
 
 var nodeAddCmd = &cobra.Command{
-	Use:   "add <mac> <hostname> <role>",
+	Use:   "add <hostname> <role>",
 	Short: "Add a node",
-	Args:  cobra.ExactArgs(3),
+	Args:  cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		inst, err := getInstanceName()
 		if err != nil {
@@ -306,21 +306,20 @@ var nodeAddCmd = &cobra.Command{
 		}
 
 		_, err = apiClient.Post(fmt.Sprintf("/api/v1/instances/%s/nodes", inst), map[string]string{
-			"mac":      args[0],
-			"hostname": args[1],
-			"role":     args[2],
+			"hostname": args[0],
+			"role":     args[1],
 		})
 		if err != nil {
 			return err
 		}
 
-		fmt.Printf("Node added: %s (%s)\n", args[1], args[0])
+		fmt.Printf("Node added: %s\n", args[0])
 		return nil
 	},
 }
 
 var nodeSetupCmd = &cobra.Command{
-	Use:   "setup <mac>",
+	Use:   "setup <hostname>",
 	Short: "Setup Talos on node",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
@@ -343,7 +342,7 @@ var nodeSetupCmd = &cobra.Command{
 }
 
 var nodeDeleteCmd = &cobra.Command{
-	Use:   "delete <mac>",
+	Use:   "delete <hostname>",
 	Short: "Delete a node",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {

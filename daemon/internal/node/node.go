@@ -27,7 +27,6 @@ func NewManager(dataDir string) *Manager {
 
 // Node represents a cluster node configuration
 type Node struct {
-	MAC        string `yaml:"mac" json:"mac"`
 	Hostname   string `yaml:"hostname" json:"hostname"`
 	Role       string `yaml:"role" json:"role"` // controlplane or worker
 	TargetIP   string `yaml:"targetIp" json:"target_ip"`
@@ -41,7 +40,6 @@ type Node struct {
 
 // HardwareInfo contains discovered hardware information
 type HardwareInfo struct {
-	MAC             string   `json:"mac"`
 	IP              string   `json:"ip"`
 	Interface       string   `json:"interface"`
 	Disks           []string `json:"disks"`
@@ -107,7 +105,6 @@ func (m *Manager) List(instanceName string) ([]Node, error) {
 		iface, _ := yq.Exec("eval", basePath+".interface", configPath)
 		version, _ := yq.Exec("eval", basePath+".version", configPath)
 		schematicID, _ := yq.Exec("eval", basePath+".schematicId", configPath)
-		mac, _ := yq.Exec("eval", basePath+".mac", configPath)
 		configured, _ := yq.Exec("eval", basePath+".configured", configPath)
 		deployed, _ := yq.Exec("eval", basePath+".deployed", configPath)
 
@@ -119,7 +116,6 @@ func (m *Manager) List(instanceName string) ([]Node, error) {
 			Interface:   tools.CleanYQOutput(string(iface)),
 			Version:     tools.CleanYQOutput(string(version)),
 			SchematicID: tools.CleanYQOutput(string(schematicID)),
-			MAC:         tools.CleanYQOutput(string(mac)),
 			Configured:  tools.CleanYQOutput(string(configured)) == "true",
 			Deployed:    tools.CleanYQOutput(string(deployed)) == "true",
 		}
@@ -130,22 +126,22 @@ func (m *Manager) List(instanceName string) ([]Node, error) {
 	return nodes, nil
 }
 
-// Get returns a specific node by hostname or MAC
-func (m *Manager) Get(instanceName, nodeIdentifier string) (*Node, error) {
+// Get returns a specific node by hostname
+func (m *Manager) Get(instanceName, hostname string) (*Node, error) {
 	// Get all nodes
 	nodes, err := m.List(instanceName)
 	if err != nil {
 		return nil, err
 	}
 
-	// Find node by hostname or MAC
+	// Find node by hostname
 	for _, node := range nodes {
-		if node.Hostname == nodeIdentifier || node.MAC == nodeIdentifier {
+		if node.Hostname == hostname {
 			return &node, nil
 		}
 	}
 
-	return nil, fmt.Errorf("node %s not found", nodeIdentifier)
+	return nil, fmt.Errorf("node %s not found", hostname)
 }
 
 // Add registers a new node in config.yaml
@@ -155,9 +151,6 @@ func (m *Manager) Add(instanceName string, node *Node) error {
 	// Validate node data
 	if node.Hostname == "" {
 		return fmt.Errorf("hostname is required")
-	}
-	if node.MAC == "" {
-		return fmt.Errorf("MAC address is required")
 	}
 	if node.Role != "controlplane" && node.Role != "worker" {
 		return fmt.Errorf("role must be 'controlplane' or 'worker'")
@@ -181,9 +174,6 @@ func (m *Manager) Add(instanceName string, node *Node) error {
 	yq := tools.NewYQ()
 
 	// Set each field
-	if err := yq.Set(configPath, basePath+".mac", node.MAC); err != nil {
-		return fmt.Errorf("failed to set MAC: %w", err)
-	}
 	if err := yq.Set(configPath, basePath+".role", node.Role); err != nil {
 		return fmt.Errorf("failed to set role: %w", err)
 	}
@@ -287,7 +277,7 @@ func (m *Manager) Setup(instanceName, nodeIdentifier string, opts SetupOptions) 
 	}
 
 	instancePath := m.GetInstancePath(instanceName)
-	talosDir := filepath.Join(instancePath, "talos")
+	talosDir := filepath.Join(instancePath, "talos", "generated")
 
 	// Generate Talos machine config if not exists
 	controlplaneConfig := filepath.Join(talosDir, "controlplane.yaml")

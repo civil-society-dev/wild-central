@@ -146,3 +146,8 @@ func (r *APIResponse) GetArray(key string) []interface{} {
 	}
 	return nil
 }
+
+// BaseURL returns the base URL of the client
+func (c *Client) BaseURL() string {
+	return c.baseURL
+}

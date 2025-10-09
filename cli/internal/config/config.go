@@ -15,8 +15,3 @@ func GetDaemonURL() string {
 	// Use default matching daemon's port
 	return "http://localhost:5055"
 }
-
-// GetInstanceName returns the instance name from environment
-func GetInstanceName() string {
-	return os.Getenv("WILD_INSTANCE")
-}

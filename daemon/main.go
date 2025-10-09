@@ -5,13 +5,19 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/gorilla/mux"
 
 	v1 "github.com/wild-cloud/wild-central/daemon/internal/api/v1"
 )
 
+var startTime time.Time
+
 func main() {
+	// Record start time
+	startTime = time.Now()
+
 	// Get data directory from environment or use default
 	dataDir := os.Getenv("WILD_CENTRAL_DATA")
 	if dataDir == "" {
@@ -41,6 +47,11 @@ func main() {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprintf(w, `{"status":"ok"}`)
+	}).Methods("GET")
+
+	// Status endpoint
+	router.HandleFunc("/api/v1/status", func(w http.ResponseWriter, r *http.Request) {
+		api.StatusHandler(w, r, startTime, dataDir, directoryPath)
 	}).Methods("GET")
 
 	// Default server settings

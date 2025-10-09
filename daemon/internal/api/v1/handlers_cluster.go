@@ -22,21 +22,34 @@ func (api *API) ClusterGenerateConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Parse request
-	var config cluster.ClusterConfig
-	if err := json.NewDecoder(r.Body).Decode(&config); err != nil {
-		respondError(w, http.StatusBadRequest, "Invalid request body")
+	// Read cluster configuration from instance config
+	configPath := api.instance.GetInstanceConfigPath(instanceName)
+
+	// Get cluster.name
+	clusterName, err := api.config.GetConfigValue(configPath, "cluster.name")
+	if err != nil || clusterName == "" {
+		respondError(w, http.StatusBadRequest, "cluster.name not set in config")
 		return
 	}
 
-	if config.ClusterName == "" {
-		respondError(w, http.StatusBadRequest, "cluster_name is required")
+	// Get cluster.nodes.control.vip
+	vip, err := api.config.GetConfigValue(configPath, "cluster.nodes.control.vip")
+	if err != nil || vip == "" {
+		respondError(w, http.StatusBadRequest, "cluster.nodes.control.vip not set in config")
 		return
 	}
 
-	if config.VIP == "" {
-		respondError(w, http.StatusBadRequest, "vip is required")
-		return
+	// Get cluster.nodes.talos.version (optional, defaults to v1.11.0)
+	version, err := api.config.GetConfigValue(configPath, "cluster.nodes.talos.version")
+	if err != nil || version == "" {
+		version = "v1.11.0"
+	}
+
+	// Create cluster config
+	config := cluster.ClusterConfig{
+		ClusterName: clusterName,
+		VIP:         vip,
+		Version:     version,
 	}
 
 	// Generate configuration

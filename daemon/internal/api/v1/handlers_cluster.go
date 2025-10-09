@@ -193,10 +193,9 @@ func (api *API) ClusterGetKubeconfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Return as plain text
-	w.Header().Set("Content-Type", "text/plain")
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(kubeconfig))
+	respondJSON(w, http.StatusOK, map[string]string{
+		"kubeconfig": kubeconfig,
+	})
 }
 
 // ClusterGetTalosconfig returns the talosconfig
@@ -218,10 +217,9 @@ func (api *API) ClusterGetTalosconfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Return as plain text
-	w.Header().Set("Content-Type", "text/plain")
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(talosconfig))
+	respondJSON(w, http.StatusOK, map[string]string{
+		"talosconfig": talosconfig,
+	})
 }
 
 // ClusterReset resets the cluster

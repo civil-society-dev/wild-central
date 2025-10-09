@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/gorilla/mux"
 	"gopkg.in/yaml.v3"
@@ -413,6 +414,31 @@ func (api *API) SetContext(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusOK, map[string]string{
 		"context": req.Context,
 		"message": "Context set successfully",
+	})
+}
+
+// StatusHandler returns daemon status information
+func (api *API) StatusHandler(w http.ResponseWriter, r *http.Request, startTime time.Time, dataDir, directoryPath string) {
+	// Get list of instances
+	instances, err := api.instance.ListInstances()
+	if err != nil {
+		instances = []string{}
+	}
+
+	// Calculate uptime
+	uptime := time.Since(startTime)
+
+	respondJSON(w, http.StatusOK, map[string]interface{}{
+		"status":        "running",
+		"version":       "0.1.0", // TODO: Get from build info
+		"uptime":        uptime.String(),
+		"uptimeSeconds": int(uptime.Seconds()),
+		"dataDir":       dataDir,
+		"directoryPath": directoryPath,
+		"instances": map[string]interface{}{
+			"count": len(instances),
+			"names": instances,
+		},
 	})
 }
 

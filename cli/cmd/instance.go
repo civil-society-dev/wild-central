@@ -159,25 +159,73 @@ var instanceDeleteCmd = &cobra.Command{
 var instanceCurrentCmd = &cobra.Command{
 	Use:   "current",
 	Short: "Show current instance",
-	Long:  `Display the instance that would be used by commands (from --instance flag or WILD_INSTANCE environment variable).`,
+	Long:  `Display the instance that would be used by commands.
+
+Resolution order:
+  1. --instance flag
+  2. ~/.wildcloud/current_instance file
+  3. Auto-select first available instance`,
 	Run: func(cmd *cobra.Command, args []string) {
-		// Check flag first (it takes precedence)
-		inst := instanceName
-
-		// If not set by flag, check environment
-		if inst == "" {
-			inst = os.Getenv("WILD_INSTANCE")
-		}
-
-		// If still not set, show helpful message
-		if inst == "" {
-			fmt.Println("No instance configured (use --instance flag or set WILD_INSTANCE environment variable)")
-			return
+		inst, err := getInstanceName()
+		if err != nil {
+			fmt.Printf("Error: %v\n", err)
+			os.Exit(1)
 		}
 
 		fmt.Println(inst)
 	},
 }
+
+var instanceUseCmd = &cobra.Command{
+	Use:   "use <name>",
+	Short: "Set the default instance",
+	Long: `Set the default instance to use for all commands.
+
+This persists the instance selection to ~/.wildcloud/current_instance.
+The instance can still be overridden with the --instance flag.`,
+	Args: cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		instanceToSet := args[0]
+
+		// Validate instance exists by calling API
+		resp, err := apiClient.Get(fmt.Sprintf("/api/v1/instances/%s", instanceToSet))
+		if err != nil {
+			return fmt.Errorf("instance '%s' not found: %w", instanceToSet, err)
+		}
+
+		// Verify we got a valid response
+		if name := resp.GetString("name"); name != instanceToSet {
+			return fmt.Errorf("instance '%s' not found", instanceToSet)
+		}
+
+		// Persist the selection
+		if err := config.SetCurrentInstance(instanceToSet); err != nil {
+			return fmt.Errorf("failed to set current instance: %w", err)
+		}
+
+		fmt.Printf("Switched to instance: %s\n", instanceToSet)
+
+		// Check for config files and provide hint
+		dataDir := config.GetWildCLIDataDir()
+		instanceDir := filepath.Join(dataDir, "instances", instanceToSet)
+
+		var hasConfigs bool
+		if _, err := os.Stat(filepath.Join(instanceDir, "talosconfig")); err == nil {
+			hasConfigs = true
+		}
+		if _, err := os.Stat(filepath.Join(instanceDir, "kubeconfig")); err == nil {
+			hasConfigs = true
+		}
+
+		if hasConfigs {
+			fmt.Println("\nTo configure your environment, run:")
+			fmt.Println("  source <(wild instance env)")
+		}
+
+		return nil
+	},
+}
+
 
 func init() {
 	instanceCmd.AddCommand(instanceCreateCmd)

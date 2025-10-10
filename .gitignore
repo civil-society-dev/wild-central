@@ -18,10 +18,8 @@ uv.lock
 # Claude AI configuration
 .claude/
 
-# Temporary ignore until we get things sorted
-data/assets
-data/logs
-
+# Wild Cloud
+data/
 
 # Development working dir
 .working/
@@ -29,3 +27,9 @@ data/logs
 __debug*
 compact__
 .lock
+
+# Compiled binaries
+daemon/daemon
+daemon/wildd
+cli/wild
+bin

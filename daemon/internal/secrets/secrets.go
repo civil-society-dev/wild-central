@@ -107,7 +107,8 @@ func (m *Manager) SetSecret(secretsPath, key, value string) error {
 	// Acquire lock before modifying
 	lockPath := secretsPath + ".lock"
 	return storage.WithLock(lockPath, func() error {
-		if err := m.yq.Set(secretsPath, fmt.Sprintf(".%s", key), fmt.Sprintf(`"%s"`, value)); err != nil {
+		// Don't wrap value in quotes - yq handles YAML quoting automatically
+		if err := m.yq.Set(secretsPath, fmt.Sprintf(".%s", key), value); err != nil {
 			return err
 		}
 		// Ensure permissions remain secure after modification

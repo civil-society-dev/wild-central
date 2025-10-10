@@ -4,6 +4,8 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
+
+	"github.com/wild-cloud/wild-central/wild/internal/config"
 )
 
 // Secret commands
@@ -23,17 +25,19 @@ var secretGetCmd = &cobra.Command{
 		}
 		key := args[0]
 
-		resp, err := apiClient.Get(fmt.Sprintf("/api/v1/instances/%s/secrets", inst))
+		// Request raw secrets (not redacted)
+		resp, err := apiClient.Get(fmt.Sprintf("/api/v1/instances/%s/secrets?raw=true", inst))
 		if err != nil {
 			return err
 		}
 
-		if secrets := resp.GetMap("secrets"); secrets != nil {
-			if val, ok := secrets[key]; ok {
-				fmt.Println(val)
-			} else {
-				return fmt.Errorf("secret '%s' not found", key)
-			}
+		// Secrets are returned directly at top level, not nested under "secrets" key
+		// Use nested path lookup for dot notation (e.g., cloudflare.token)
+		val := config.GetValue(resp.Data, key)
+		if val != nil {
+			fmt.Println(val)
+		} else {
+			return fmt.Errorf("secret '%s' not found", key)
 		}
 		return nil
 	},

@@ -100,12 +100,23 @@ func (api *API) ServicesInstall(w http.ResponseWriter, r *http.Request) {
 
 	// Install in background
 	go func() {
+		// Recover from panics to prevent goroutine crashes
+		defer func() {
+			if r := recover(); r != nil {
+				fmt.Printf("[ERROR] Service install goroutine panic: %v\n", r)
+				opsMgr.Update(instanceName, opID, "failed", fmt.Sprintf("Internal error: %v", r), 0)
+			}
+		}()
+
+		fmt.Printf("[DEBUG] Service install goroutine started: service=%s instance=%s opID=%s\n", req.Name, instanceName, opID)
 		servicesMgr := services.NewManager(api.dataDir, filepath.Join(api.directoryPath, "setup", "cluster-services"))
 		opsMgr.UpdateStatus(instanceName, opID, "running")
 
 		if err := servicesMgr.Install(instanceName, req.Name, req.Fetch, req.Deploy, opID, api.broadcaster); err != nil {
+			fmt.Printf("[DEBUG] Service install failed: %v\n", err)
 			opsMgr.Update(instanceName, opID, "failed", err.Error(), 0)
 		} else {
+			fmt.Printf("[DEBUG] Service install completed successfully\n")
 			opsMgr.Update(instanceName, opID, "completed", "Service installed", 100)
 		}
 	}()

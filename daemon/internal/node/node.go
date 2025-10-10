@@ -377,14 +377,24 @@ func (m *Manager) Apply(instanceName, nodeIdentifier string, opts ApplyOptions) 
 
 	// Apply configuration to node
 	// Determine which IP to use and whether node is in maintenance mode
-	// If maintenance flag is set OR currentIP differs from targetIP, use maintenance mode
+	//
+	// Three scenarios:
+	// 1. Production node (currentIP empty/same, maintenance=false): use targetIP, no --insecure
+	// 2. IP changing (currentIP != targetIP): use currentIP, --insecure (always maintenance)
+	// 3. Maintenance at target (maintenance=true, no IP change): use targetIP, --insecure
 	var deployIP string
 	var maintenanceMode bool
 
-	if node.Maintenance || (node.CurrentIP != "" && node.CurrentIP != node.TargetIP) {
+	if node.CurrentIP != "" && node.CurrentIP != node.TargetIP {
+		// Scenario 2: IP is changing - node is at currentIP, moving to targetIP
 		deployIP = node.CurrentIP
-		maintenanceMode = true // Use --insecure flag
+		maintenanceMode = true
+	} else if node.Maintenance {
+		// Scenario 3: Explicit maintenance mode, no IP change
+		deployIP = node.TargetIP
+		maintenanceMode = true
 	} else {
+		// Scenario 1: Production node at target IP
 		deployIP = node.TargetIP
 		maintenanceMode = false
 	}

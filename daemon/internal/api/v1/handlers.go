@@ -362,10 +362,13 @@ func (api *API) UpdateSecrets(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Get secrets file path
+	secretsPath := api.instance.GetInstanceSecretsPath(name)
+
 	// Update each secret
 	for key, value := range updates {
 		valueStr := fmt.Sprintf("%v", value)
-		if err := api.secrets.SetSecret(name, key, valueStr); err != nil {
+		if err := api.secrets.SetSecret(secretsPath, key, valueStr); err != nil {
 			respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to update secret %s: %v", key, err))
 			return
 		}

@@ -4,6 +4,8 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
+
+	"github.com/wild-cloud/wild-central/wild/internal/config"
 )
 
 // Config commands
@@ -28,8 +30,9 @@ var configGetCmd = &cobra.Command{
 			return err
 		}
 
-		// Config is returned directly at top level
-		if val, ok := resp.Data[key]; ok {
+		// Use nested path lookup for dot notation (e.g., certManager.cloudflare.zoneId)
+		val := config.GetValue(resp.Data, key)
+		if val != nil {
 			fmt.Println(val)
 		} else {
 			return fmt.Errorf("key '%s' not found", key)

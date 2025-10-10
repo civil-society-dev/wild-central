@@ -78,17 +78,23 @@ var serviceDeployments = map[string]struct {
 	"utils":                  {"utils-system", "utils"},
 }
 
-// getKubeconfigPath returns the path to the kubeconfig for an instance
-func (m *Manager) getKubeconfigPath(instanceName string) string {
-	return filepath.Join(m.dataDir, "instances", instanceName, ".kubeconfig")
-}
-
 // checkServiceStatus checks if a service is deployed
 func (m *Manager) checkServiceStatus(instanceName, serviceName string) string {
-	kubeconfigPath := m.getKubeconfigPath(instanceName)
+	kubeconfigPath := tools.GetKubeconfigPath(m.dataDir, instanceName)
 
 	// If kubeconfig doesn't exist, cluster isn't bootstrapped
 	if !storage.FileExists(kubeconfigPath) {
+		return "not-deployed"
+	}
+
+	kubectl := tools.NewKubectl(kubeconfigPath)
+
+	// Special case: NFS doesn't have a deployment, check for StorageClass instead
+	if serviceName == "nfs" {
+		cmd := exec.Command("kubectl", "--kubeconfig", kubeconfigPath, "get", "storageclass", "nfs", "-o", "name")
+		if err := cmd.Run(); err == nil {
+			return "deployed"
+		}
 		return "not-deployed"
 	}
 
@@ -107,7 +113,6 @@ func (m *Manager) checkServiceStatus(instanceName, serviceName string) string {
 		return "not-deployed"
 	}
 
-	kubectl := tools.NewKubectl(kubeconfigPath)
 	if kubectl.DeploymentExists(deploymentName, namespace) {
 		return "deployed"
 	}
@@ -304,23 +309,22 @@ func (m *Manager) Fetch(instanceName, serviceName string) error {
 
 	// 3. Copy files:
 	//    - README.md (if exists, optional)
-	//    - install.sh (required)
+	//    - install.sh (if exists, optional)
 	//    - kustomize.template/* (if exists, optional)
 
 	// Copy README.md
 	copyFileIfExists(filepath.Join(sourceDir, "README.md"),
 		filepath.Join(instanceDir, "README.md"))
 
-	// Copy install.sh (required)
+	// Copy install.sh (optional)
 	installSh := filepath.Join(sourceDir, "install.sh")
-	if !fileExists(installSh) {
-		return fmt.Errorf("install.sh not found for service %s", serviceName)
+	if fileExists(installSh) {
+		if err := copyFile(installSh, filepath.Join(instanceDir, "install.sh")); err != nil {
+			return fmt.Errorf("failed to copy install.sh: %w", err)
+		}
+		// Make install.sh executable
+		os.Chmod(filepath.Join(instanceDir, "install.sh"), 0755)
 	}
-	if err := copyFile(installSh, filepath.Join(instanceDir, "install.sh")); err != nil {
-		return fmt.Errorf("failed to copy install.sh: %w", err)
-	}
-	// Make install.sh executable
-	os.Chmod(filepath.Join(instanceDir, "install.sh"), 0755)
 
 	// Copy kustomize.template directory if it exists
 	templateDir := filepath.Join(sourceDir, "kustomize.template")
@@ -478,20 +482,29 @@ func (m *Manager) Compile(instanceName, serviceName string) error {
 // Deploy executes the service-specific install.sh script
 // opID and broadcaster are optional - if provided, output will be streamed to SSE clients
 func (m *Manager) Deploy(instanceName, serviceName, opID string, broadcaster *operations.Broadcaster) error {
+	fmt.Printf("[DEBUG] Deploy() called for service=%s instance=%s opID=%s\n", serviceName, instanceName, opID)
+
 	instanceDir := filepath.Join(m.dataDir, "instances", instanceName)
 	serviceDir := filepath.Join(instanceDir, "setup", "cluster-services", serviceName)
 	installScript := filepath.Join(serviceDir, "install.sh")
 
-	// 1. Validate install.sh exists
+	// 1. Check if install.sh exists
 	if !fileExists(installScript) {
-		return fmt.Errorf("install.sh not found for service %s", serviceName)
+		// No install.sh means nothing to deploy - this is valid for documentation-only services
+		msg := fmt.Sprintf("ℹ️  Service %s has no install.sh - nothing to deploy\n", serviceName)
+		if broadcaster != nil && opID != "" {
+			broadcaster.Publish(opID, []byte(msg))
+		}
+		return nil
 	}
+	fmt.Printf("[DEBUG] Found install script: %s\n", installScript)
 
 	// 2. Set up environment
-	kubeconfigPath := filepath.Join(instanceDir, ".kubeconfig")
+	kubeconfigPath := tools.GetKubeconfigPath(m.dataDir, instanceName)
 	if !fileExists(kubeconfigPath) {
 		return fmt.Errorf("kubeconfig not found - cluster may not be bootstrapped")
 	}
+	fmt.Printf("[DEBUG] Using kubeconfig: %s\n", kubeconfigPath)
 
 	// Build environment - append to existing environment
 	// This ensures kubectl and other tools are available
@@ -501,6 +514,7 @@ func (m *Manager) Deploy(instanceName, serviceName, opID string, broadcaster *op
 		fmt.Sprintf("WILD_CENTRAL_DATA=%s", m.dataDir),
 		fmt.Sprintf("KUBECONFIG=%s", kubeconfigPath),
 	)
+	fmt.Printf("[DEBUG] Environment configured: WILD_INSTANCE=%s, KUBECONFIG=%s\n", instanceName, kubeconfigPath)
 
 	// 3. Set up output streaming
 	var outputWriter *broadcastWriter
@@ -520,9 +534,17 @@ func (m *Manager) Deploy(instanceName, serviceName, opID string, broadcaster *op
 
 		// Create broadcast writer
 		outputWriter = newBroadcastWriter(logFile, broadcaster, opID)
+
+		// Send initial heartbeat message to SSE stream
+		if broadcaster != nil {
+			initialMsg := fmt.Sprintf("🚀 Starting deployment of %s...\n", serviceName)
+			broadcaster.Publish(opID, []byte(initialMsg))
+			fmt.Printf("[DEBUG] Sent initial SSE message for opID=%s\n", opID)
+		}
 	}
 
 	// 4. Execute install.sh
+	fmt.Printf("[DEBUG] Executing: /bin/bash %s\n", installScript)
 	cmd := exec.Command("/bin/bash", installScript)
 	cmd.Dir = serviceDir
 	cmd.Env = env
@@ -531,7 +553,9 @@ func (m *Manager) Deploy(instanceName, serviceName, opID string, broadcaster *op
 		// Stream output to file and SSE clients
 		cmd.Stdout = outputWriter
 		cmd.Stderr = outputWriter
+		fmt.Printf("[DEBUG] Starting command execution for opID=%s\n", opID)
 		err := cmd.Run()
+		fmt.Printf("[DEBUG] Command completed for opID=%s, err=%v\n", opID, err)
 		if broadcaster != nil {
 			outputWriter.Flush()            // Flush any remaining buffered data
 			broadcaster.Close(opID)         // Close all SSE clients

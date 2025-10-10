@@ -217,6 +217,88 @@ var nodeDiscoverCmd = &cobra.Command{
 	},
 }
 
+var nodeDetectCmd = &cobra.Command{
+	Use:   "detect <ip>",
+	Short: "Detect hardware on a single node",
+	Long: `Detect hardware configuration on a single node in maintenance mode.
+
+This queries the node for available network interfaces and disks, helping you
+decide which hardware to use when adding the node to the cluster.
+
+Example:
+  wild node detect 192.168.1.31
+
+Output shows:
+  - Available network interfaces
+  - Available disks with sizes
+  - Recommended selections`,
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		inst, err := getInstanceName()
+		if err != nil {
+			return err
+		}
+
+		nodeIP := args[0]
+
+		// Call API to detect hardware
+		resp, err := apiClient.Post(fmt.Sprintf("/api/v1/instances/%s/nodes/detect", inst), map[string]string{
+			"ip": nodeIP,
+		})
+		if err != nil {
+			return err
+		}
+
+		if outputFormat == "json" {
+			return printJSON(resp.Data)
+		}
+
+		if outputFormat == "yaml" {
+			return printYAML(resp.Data)
+		}
+
+		// Text format - show hardware details
+		fmt.Printf("Hardware detected for node at %s:\n\n", nodeIP)
+
+		if iface := resp.GetString("interface"); iface != "" {
+			fmt.Printf("Interface:        %s\n", iface)
+		}
+
+		if disks := resp.GetArray("disks"); len(disks) > 0 {
+			fmt.Printf("\nAvailable Disks:\n")
+			for _, diskData := range disks {
+				diskMap, ok := diskData.(map[string]interface{})
+				if !ok {
+					continue
+				}
+
+				path, _ := diskMap["path"].(string)
+				size, _ := diskMap["size"].(float64) // JSON numbers are float64
+
+				// Format size in GB/TB
+				sizeGB := size / (1024 * 1024 * 1024)
+				var sizeStr string
+				if sizeGB >= 1000 {
+					sizeStr = fmt.Sprintf("%.1f TB", sizeGB/1024)
+				} else {
+					sizeStr = fmt.Sprintf("%.1f GB", sizeGB)
+				}
+
+				fmt.Printf("  - %s (%s)\n", path, sizeStr)
+			}
+		}
+
+		if selected := resp.GetString("selected_disk"); selected != "" {
+			fmt.Printf("\nRecommended Disk: %s\n", selected)
+		}
+
+		fmt.Printf("\nTo add this node:\n")
+		fmt.Printf("  wild node add <hostname> <role> --current-ip %s --target-ip <target-ip> --disk <disk> --interface <interface>\n", nodeIP)
+
+		return nil
+	},
+}
+
 var nodeListCmd = &cobra.Command{
 	Use:   "list",
 	Short: "List configured nodes",
@@ -297,7 +379,19 @@ var nodeShowCmd = &cobra.Command{
 
 var nodeAddCmd = &cobra.Command{
 	Use:   "add <hostname> <role>",
-	Short: "Add a node",
+	Short: "Add a node to cluster configuration",
+	Long: `Add a node to the cluster configuration with required hardware details.
+
+Role must be either 'controlplane' or 'worker'.
+
+The node configuration will be stored in the instance config and used during apply.
+
+Examples:
+  # Node in maintenance mode (PXE booted)
+  wild node add control-1 controlplane --current-ip 192.168.1.100 --target-ip 192.168.1.31 --disk /dev/sda
+
+  # Node already applied (unusual, only if config was removed manually)
+  wild node add worker-1 worker --target-ip 192.168.1.32 --disk /dev/nvme0n1`,
 	Args:  cobra.ExactArgs(2),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		inst, err := getInstanceName()
@@ -305,22 +399,73 @@ var nodeAddCmd = &cobra.Command{
 			return err
 		}
 
-		_, err = apiClient.Post(fmt.Sprintf("/api/v1/instances/%s/nodes", inst), map[string]string{
+		// Get flags
+		targetIP, _ := cmd.Flags().GetString("target-ip")
+		currentIP, _ := cmd.Flags().GetString("current-ip")
+		disk, _ := cmd.Flags().GetString("disk")
+		iface, _ := cmd.Flags().GetString("interface")
+		schematicID, _ := cmd.Flags().GetString("schematic-id")
+		maintenance, _ := cmd.Flags().GetBool("maintenance")
+
+		// Build request body
+		body := map[string]interface{}{
 			"hostname": args[0],
 			"role":     args[1],
-		})
+		}
+
+		if targetIP != "" {
+			body["target_ip"] = targetIP
+		}
+		if currentIP != "" {
+			body["current_ip"] = currentIP
+		}
+		if disk != "" {
+			body["disk"] = disk
+		}
+		if iface != "" {
+			body["interface"] = iface
+		}
+		if schematicID != "" {
+			body["schematic_id"] = schematicID
+		}
+		if maintenance {
+			body["maintenance"] = true
+		}
+
+		_, err = apiClient.Post(fmt.Sprintf("/api/v1/instances/%s/nodes", inst), body)
 		if err != nil {
 			return err
 		}
 
-		fmt.Printf("Node added: %s\n", args[0])
+		fmt.Printf("Node added: %s (%s)\n", args[0], args[1])
+		if targetIP != "" {
+			fmt.Printf("  Target IP: %s\n", targetIP)
+		}
+		if disk != "" {
+			fmt.Printf("  Disk: %s\n", disk)
+		}
 		return nil
 	},
 }
 
-var nodeSetupCmd = &cobra.Command{
-	Use:   "setup <hostname>",
-	Short: "Setup Talos on node",
+var nodeApplyCmd = &cobra.Command{
+	Use:   "apply <hostname>",
+	Short: "Apply Talos configuration to node",
+	Long: `Generate and apply Talos configuration to a node.
+
+This command:
+1. Auto-fetches patch templates if missing
+2. Generates node-specific configuration from templates
+3. Merges base config with node patch
+4. Applies configuration to node (using --insecure if in maintenance mode)
+5. Updates node state after successful application
+
+Examples:
+  # Apply to node in maintenance mode (PXE booted)
+  wild node apply control-1
+
+  # Re-apply to production node (updates configuration)
+  wild node apply worker-1`,
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		inst, err := getInstanceName()
@@ -328,15 +473,109 @@ var nodeSetupCmd = &cobra.Command{
 			return err
 		}
 
-		resp, err := apiClient.Post(fmt.Sprintf("/api/v1/instances/%s/nodes/%s/setup", inst, args[0]), nil)
+		resp, err := apiClient.Post(fmt.Sprintf("/api/v1/instances/%s/nodes/%s/apply", inst, args[0]), nil)
 		if err != nil {
 			return err
 		}
 
-		fmt.Printf("Node setup started\n")
-		if opID := resp.GetString("operation_id"); opID != "" {
-			fmt.Printf("Operation ID: %s\n", opID)
+		fmt.Printf("Node configuration applied: %s\n", args[0])
+		if msg := resp.GetString("message"); msg != "" {
+			fmt.Printf("%s\n", msg)
 		}
+		return nil
+	},
+}
+
+var nodeUpdateCmd = &cobra.Command{
+	Use:   "update <hostname>",
+	Short: "Update node configuration",
+	Long: `Update existing node configuration with partial updates.
+
+This command modifies node properties without requiring all fields.
+
+Examples:
+  # Update disk after hardware change
+  wild node update worker-1 --disk /dev/sdb
+
+  # Move node to maintenance mode
+  wild node update control-1 --current-ip 192.168.1.100 --maintenance
+
+  # Clear maintenance after successful apply
+  wild node update control-1 --no-maintenance`,
+	Args:  cobra.ExactArgs(1),
+	RunE: func(cmd *cobra.Command, args []string) error {
+		inst, err := getInstanceName()
+		if err != nil {
+			return err
+		}
+
+		// Get flags
+		targetIP, _ := cmd.Flags().GetString("target-ip")
+		currentIP, _ := cmd.Flags().GetString("current-ip")
+		disk, _ := cmd.Flags().GetString("disk")
+		iface, _ := cmd.Flags().GetString("interface")
+		schematicID, _ := cmd.Flags().GetString("schematic-id")
+		maintenance, _ := cmd.Flags().GetBool("maintenance")
+		noMaintenance, _ := cmd.Flags().GetBool("no-maintenance")
+
+		// Build request body with only provided fields
+		body := map[string]interface{}{}
+
+		if targetIP != "" {
+			body["target_ip"] = targetIP
+		}
+		if currentIP != "" {
+			body["current_ip"] = currentIP
+		}
+		if disk != "" {
+			body["disk"] = disk
+		}
+		if iface != "" {
+			body["interface"] = iface
+		}
+		if schematicID != "" {
+			body["schematic_id"] = schematicID
+		}
+		if maintenance {
+			body["maintenance"] = true
+		}
+		if noMaintenance {
+			body["maintenance"] = false
+		}
+
+		if len(body) == 0 {
+			return fmt.Errorf("no updates specified")
+		}
+
+		_, err = apiClient.Put(fmt.Sprintf("/api/v1/instances/%s/nodes/%s", inst, args[0]), body)
+		if err != nil {
+			return err
+		}
+
+		fmt.Printf("Node updated: %s\n", args[0])
+		return nil
+	},
+}
+
+var nodeFetchTemplatesCmd = &cobra.Command{
+	Use:   "fetch-patch-templates",
+	Short: "Fetch patch templates from directory",
+	Long: `Copy latest patch templates from directory/setup/cluster-nodes/patch.templates to instance.
+
+This command is automatically called by 'apply' if templates are missing.
+You can use it manually to update templates.`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		inst, err := getInstanceName()
+		if err != nil {
+			return err
+		}
+
+		_, err = apiClient.Post(fmt.Sprintf("/api/v1/instances/%s/nodes/fetch-templates", inst), nil)
+		if err != nil {
+			return err
+		}
+
+		fmt.Println("Templates fetched successfully")
 		return nil
 	},
 }
@@ -363,11 +602,31 @@ var nodeDeleteCmd = &cobra.Command{
 
 func init() {
 	nodeCmd.AddCommand(nodeDiscoverCmd)
+	nodeCmd.AddCommand(nodeDetectCmd)
 	nodeCmd.AddCommand(nodeListCmd)
 	nodeCmd.AddCommand(nodeShowCmd)
 	nodeCmd.AddCommand(nodeAddCmd)
-	nodeCmd.AddCommand(nodeSetupCmd)
+	nodeCmd.AddCommand(nodeApplyCmd)
+	nodeCmd.AddCommand(nodeUpdateCmd)
+	nodeCmd.AddCommand(nodeFetchTemplatesCmd)
 	nodeCmd.AddCommand(nodeDeleteCmd)
+
+	// Add flags to node add command
+	nodeAddCmd.Flags().String("target-ip", "", "Target IP address for production")
+	nodeAddCmd.Flags().String("current-ip", "", "Current IP address (for maintenance mode)")
+	nodeAddCmd.Flags().String("disk", "", "Disk device (required, e.g., /dev/sda)")
+	nodeAddCmd.Flags().String("interface", "", "Network interface (optional, e.g., eth0)")
+	nodeAddCmd.Flags().String("schematic-id", "", "Talos schematic ID (optional, uses instance default)")
+	nodeAddCmd.Flags().Bool("maintenance", false, "Mark node as in maintenance mode")
+
+	// Add flags to node update command
+	nodeUpdateCmd.Flags().String("target-ip", "", "Update target IP address")
+	nodeUpdateCmd.Flags().String("current-ip", "", "Update current IP address")
+	nodeUpdateCmd.Flags().String("disk", "", "Update disk device")
+	nodeUpdateCmd.Flags().String("interface", "", "Update network interface")
+	nodeUpdateCmd.Flags().String("schematic-id", "", "Update Talos schematic ID")
+	nodeUpdateCmd.Flags().Bool("maintenance", false, "Set maintenance mode")
+	nodeUpdateCmd.Flags().Bool("no-maintenance", false, "Clear maintenance mode")
 }
 
 // PXE commands
@@ -447,20 +706,31 @@ var clusterCmd = &cobra.Command{
 }
 
 var clusterBootstrapCmd = &cobra.Command{
-	Use:   "bootstrap",
-	Short: "Bootstrap cluster",
+	Use:   "bootstrap <node>",
+	Short: "Bootstrap cluster on a control plane node",
+	Long: `Bootstrap the Kubernetes cluster by initializing etcd on a control plane node.
+
+This should be run once after the first control plane node is configured.
+
+Example:
+  wild cluster bootstrap test-control-1`,
+	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		inst, err := getInstanceName()
 		if err != nil {
 			return err
 		}
 
-		resp, err := apiClient.Post(fmt.Sprintf("/api/v1/instances/%s/cluster/bootstrap", inst), nil)
+		nodeName := args[0]
+
+		resp, err := apiClient.Post(fmt.Sprintf("/api/v1/instances/%s/cluster/bootstrap", inst), map[string]string{
+			"node": nodeName,
+		})
 		if err != nil {
 			return err
 		}
 
-		fmt.Println("Cluster bootstrap started")
+		fmt.Printf("Cluster bootstrap started on node: %s\n", nodeName)
 		if opID := resp.GetString("operation_id"); opID != "" {
 			fmt.Printf("Operation ID: %s\n", opID)
 		}
@@ -1204,7 +1474,12 @@ var operationGetCmd = &cobra.Command{
 	Short: "Get operation status",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		resp, err := apiClient.Get(fmt.Sprintf("/api/v1/operations/%s?instance=%s", args[0], instanceName))
+		inst, err := getInstanceName()
+		if err != nil {
+			return err
+		}
+
+		resp, err := apiClient.Get(fmt.Sprintf("/api/v1/operations/%s?instance=%s", args[0], inst))
 		if err != nil {
 			return err
 		}
@@ -1255,6 +1530,12 @@ func init() {
 
 // streamOperationOutput streams operation output via SSE
 func streamOperationOutput(opID string) error {
+	// Get instance name
+	inst, err := getInstanceName()
+	if err != nil {
+		return err
+	}
+
 	// Get base URL
 	baseURL := daemonURL
 	if baseURL == "" {
@@ -1262,11 +1543,11 @@ func streamOperationOutput(opID string) error {
 	}
 
 	// Connect to SSE stream
-	url := fmt.Sprintf("%s/api/v1/operations/%s/stream?instance=%s", baseURL, opID, instanceName)
+	url := fmt.Sprintf("%s/api/v1/operations/%s/stream?instance=%s", baseURL, opID, inst)
 	client := sse.NewClient(url)
 	events := make(chan *sse.Event)
 
-	err := client.SubscribeChan("messages", events)
+	err = client.SubscribeChan("messages", events)
 	if err != nil {
 		return fmt.Errorf("failed to subscribe to SSE: %w", err)
 	}
@@ -1277,7 +1558,7 @@ func streamOperationOutput(opID string) error {
 		ticker := time.NewTicker(500 * time.Millisecond)
 		defer ticker.Stop()
 		for range ticker.C {
-			resp, err := apiClient.Get(fmt.Sprintf("/api/v1/operations/%s?instance=%s", opID, instanceName))
+			resp, err := apiClient.Get(fmt.Sprintf("/api/v1/operations/%s?instance=%s", opID, inst))
 			if err == nil {
 				status := resp.GetString("status")
 				if status == "completed" || status == "failed" {

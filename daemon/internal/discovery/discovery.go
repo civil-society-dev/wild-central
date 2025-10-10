@@ -170,12 +170,18 @@ func (m *Manager) probeNode(ip string) (*DiscoveredNode, error) {
 		}, nil
 	}
 
+	// Extract just the disk paths for discovery output
+	diskPaths := make([]string, len(hwInfo.Disks))
+	for i, disk := range hwInfo.Disks {
+		diskPaths[i] = disk.Path
+	}
+
 	return &DiscoveredNode{
 		IP:              ip,
 		MaintenanceMode: hwInfo.MaintenanceMode,
 		Version:         version,
 		Interface:       hwInfo.Interface,
-		Disks:           hwInfo.Disks,
+		Disks:           diskPaths,
 	}, nil
 }
 

@@ -94,6 +94,43 @@ func (api *API) NodeHardware(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusOK, hwInfo)
 }
 
+// NodeDetect detects hardware on a single node (POST with IP in body)
+func (api *API) NodeDetect(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	instanceName := vars["name"]
+
+	// Validate instance exists
+	if err := api.instance.ValidateInstance(instanceName); err != nil {
+		respondError(w, http.StatusNotFound, fmt.Sprintf("Instance not found: %v", err))
+		return
+	}
+
+	// Parse request body
+	var req struct {
+		IP string `json:"ip"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		respondError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+
+	if req.IP == "" {
+		respondError(w, http.StatusBadRequest, "ip is required")
+		return
+	}
+
+	// Detect hardware
+	nodeMgr := node.NewManager(api.dataDir)
+	hwInfo, err := nodeMgr.DetectHardware(req.IP)
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to detect hardware: %v", err))
+		return
+	}
+
+	respondJSON(w, http.StatusOK, hwInfo)
+}
+
 // NodeAdd registers a new node
 func (api *API) NodeAdd(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
@@ -172,8 +209,8 @@ func (api *API) NodeGet(w http.ResponseWriter, r *http.Request) {
 	respondJSON(w, http.StatusOK, nodeData)
 }
 
-// NodeSetup performs node setup
-func (api *API) NodeSetup(w http.ResponseWriter, r *http.Request) {
+// NodeApply generates configuration and applies it to node
+func (api *API) NodeApply(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	instanceName := vars["name"]
 	nodeIdentifier := vars["node"]
@@ -184,26 +221,74 @@ func (api *API) NodeSetup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Parse setup options
-	var opts node.SetupOptions
-	if err := json.NewDecoder(r.Body).Decode(&opts); err != nil {
-		// Default options if no body provided
-		opts = node.SetupOptions{
-			Reconfigure: false,
-			NoDeploy:    false,
-		}
-	}
+	// Apply always uses default options (no body needed)
+	opts := node.ApplyOptions{}
 
-	// Setup node
+	// Apply node configuration
 	nodeMgr := node.NewManager(api.dataDir)
-	if err := nodeMgr.Setup(instanceName, nodeIdentifier, opts); err != nil {
-		respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to setup node: %v", err))
+	if err := nodeMgr.Apply(instanceName, nodeIdentifier, opts); err != nil {
+		respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to apply node configuration: %v", err))
 		return
 	}
 
 	respondJSON(w, http.StatusOK, map[string]string{
-		"message": "Node setup completed",
+		"message": "Node configuration applied successfully",
 		"node":    nodeIdentifier,
+	})
+}
+
+// NodeUpdate modifies existing node configuration
+func (api *API) NodeUpdate(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	instanceName := vars["name"]
+	nodeIdentifier := vars["node"]
+
+	// Validate instance exists
+	if err := api.instance.ValidateInstance(instanceName); err != nil {
+		respondError(w, http.StatusNotFound, fmt.Sprintf("Instance not found: %v", err))
+		return
+	}
+
+	// Parse update data
+	var updates map[string]interface{}
+	if err := json.NewDecoder(r.Body).Decode(&updates); err != nil {
+		respondError(w, http.StatusBadRequest, "Invalid request body")
+		return
+	}
+
+	// Update node
+	nodeMgr := node.NewManager(api.dataDir)
+	if err := nodeMgr.Update(instanceName, nodeIdentifier, updates); err != nil {
+		respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to update node: %v", err))
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]string{
+		"message": "Node updated successfully",
+		"node":    nodeIdentifier,
+	})
+}
+
+// NodeFetchTemplates copies patch templates from directory to instance
+func (api *API) NodeFetchTemplates(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	instanceName := vars["name"]
+
+	// Validate instance exists
+	if err := api.instance.ValidateInstance(instanceName); err != nil {
+		respondError(w, http.StatusNotFound, fmt.Sprintf("Instance not found: %v", err))
+		return
+	}
+
+	// Fetch templates
+	nodeMgr := node.NewManager(api.dataDir)
+	if err := nodeMgr.FetchTemplates(instanceName); err != nil {
+		respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to fetch templates: %v", err))
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]string{
+		"message": "Templates fetched successfully",
 	})
 }
 

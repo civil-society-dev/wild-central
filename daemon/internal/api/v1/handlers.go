@@ -77,12 +77,15 @@ func (api *API) RegisterRoutes(r *mux.Router) {
 
 	// Phase 2: Node management
 	r.HandleFunc("/api/v1/instances/{name}/nodes/discover", api.NodeDiscover).Methods("POST")
+	r.HandleFunc("/api/v1/instances/{name}/nodes/detect", api.NodeDetect).Methods("POST")
 	r.HandleFunc("/api/v1/instances/{name}/discovery", api.NodeDiscoveryStatus).Methods("GET")
 	r.HandleFunc("/api/v1/instances/{name}/nodes/hardware/{ip}", api.NodeHardware).Methods("GET")
+	r.HandleFunc("/api/v1/instances/{name}/nodes/fetch-templates", api.NodeFetchTemplates).Methods("POST")
 	r.HandleFunc("/api/v1/instances/{name}/nodes", api.NodeAdd).Methods("POST")
 	r.HandleFunc("/api/v1/instances/{name}/nodes", api.NodeList).Methods("GET")
 	r.HandleFunc("/api/v1/instances/{name}/nodes/{node}", api.NodeGet).Methods("GET")
-	r.HandleFunc("/api/v1/instances/{name}/nodes/{node}/setup", api.NodeSetup).Methods("POST")
+	r.HandleFunc("/api/v1/instances/{name}/nodes/{node}", api.NodeUpdate).Methods("PUT")
+	r.HandleFunc("/api/v1/instances/{name}/nodes/{node}/apply", api.NodeApply).Methods("POST")
 	r.HandleFunc("/api/v1/instances/{name}/nodes/{node}", api.NodeDelete).Methods("DELETE")
 
 	// Phase 2: PXE asset management

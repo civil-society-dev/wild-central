@@ -95,12 +95,31 @@ func (m *Manager) GenerateConfig(instanceName string, config *ClusterConfig) err
 
 // Bootstrap bootstraps the cluster on the specified node
 func (m *Manager) Bootstrap(instanceName, nodeName string) error {
-	// Get node IP from config
-	// This is a simplified version - real implementation would query config.yaml
-	// For now, we'll require the full node IP to be passed
+	// Get node configuration to find the target IP
+	instancePath := filepath.Join(m.dataDir, "instances", instanceName)
+	configPath := filepath.Join(instancePath, "config.yaml")
 
-	// Bootstrap command
-	cmd := exec.Command("talosctl", "bootstrap", "--nodes", nodeName)
+	yq := tools.NewYQ()
+
+	// Get node's target IP
+	nodeIPRaw, err := yq.Get(configPath, fmt.Sprintf(".cluster.nodes.active.%s.targetIp", nodeName))
+	if err != nil {
+		return fmt.Errorf("failed to get node IP: %w", err)
+	}
+
+	nodeIP := tools.CleanYQOutput(nodeIPRaw)
+	if nodeIP == "" || nodeIP == "null" {
+		return fmt.Errorf("node %s does not have a target IP configured", nodeName)
+	}
+
+	// Set talosctl endpoint (like v.PoC does: talosctl config endpoint "$TARGET_IP")
+	cmdEndpoint := exec.Command("talosctl", "config", "endpoint", nodeIP)
+	if output, err := cmdEndpoint.CombinedOutput(); err != nil {
+		return fmt.Errorf("failed to set talosctl endpoint: %w\nOutput: %s", err, string(output))
+	}
+
+	// Bootstrap command (like v.PoC does: talosctl bootstrap --nodes "$TARGET_IP")
+	cmd := exec.Command("talosctl", "bootstrap", "--nodes", nodeIP)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("failed to bootstrap cluster: %w\nOutput: %s", err, string(output))

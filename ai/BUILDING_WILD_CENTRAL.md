@@ -12,13 +12,13 @@ To make Wild Cloud more accessible to a broader audience, we are developing Wild
 
 ### Info about Wild Cloud v.PoC
 
-- @docs/agent-context/wildcloud/README.md
-- @docs/agent-context/wildcloud/overview.md
-- @docs/agent-context/wildcloud/project-architecture.md
-- @docs/agent-context/wildcloud/bin-scripts.md
-- @docs/agent-context/wildcloud/configuration-system.md
-- @docs/agent-context/wildcloud/setup-process.md
-- @docs/agent-context/wildcloud/apps-system.md
+- @docs/agent-context/wildcloud-v.PoC/README.md
+- @docs/agent-context/wildcloud-v.PoC/overview.md
+- @docs/agent-context/wildcloud-v.PoC/project-architecture.md
+- @docs/agent-context/wildcloud-v.PoC/bin-scripts.md
+- @docs/agent-context/wildcloud-v.PoC/configuration-system.md
+- @docs/agent-context/wildcloud-v.PoC/setup-process.md
+- @docs/agent-context/wildcloud-v.PoC/apps-system.md
 
 ### Info about Talos
 

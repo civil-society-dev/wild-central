@@ -8,9 +8,3 @@ Wild-cloud Central is a bash-based infrastructure setup system for creating inex
 
 Read all of the following for context:
 - @ai/BUILDING_WILD_CENTRAL.md
-
-## Current work
-
-We are currently migrating from the wild-cloud v.PoC (proof of concept) to wild-central. See @MIGRATION_PLAN.md.
-
-Progress on the migration is tracked in @MIGRATION_PROGRESS.md.

@@ -390,7 +390,8 @@ func (m *Manager) Apply(instanceName, nodeIdentifier string, opts ApplyOptions) 
 	}
 
 	// Apply config
-	if err := m.talosctl.ApplyConfig(deployIP, finalConfig, maintenanceMode); err != nil {
+	talosconfigPath := tools.GetTalosconfigPath(m.dataDir, instanceName)
+	if err := m.talosctl.ApplyConfig(deployIP, finalConfig, maintenanceMode, talosconfigPath); err != nil {
 		return fmt.Errorf("failed to apply config to %s: %w", deployIP, err)
 	}
 

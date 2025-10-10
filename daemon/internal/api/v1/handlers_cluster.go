@@ -116,6 +116,39 @@ func (api *API) ClusterBootstrap(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// ClusterConfigureEndpoints configures talosconfig endpoints to use VIP
+func (api *API) ClusterConfigureEndpoints(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	instanceName := vars["name"]
+
+	// Validate instance exists
+	if err := api.instance.ValidateInstance(instanceName); err != nil {
+		respondError(w, http.StatusNotFound, fmt.Sprintf("Instance not found: %v", err))
+		return
+	}
+
+	// Parse request
+	var req struct {
+		IncludeNodes bool `json:"include_nodes"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		// Default to false if no body provided
+		req.IncludeNodes = false
+	}
+
+	// Configure endpoints
+	clusterMgr := cluster.NewManager(api.dataDir)
+	if err := clusterMgr.ConfigureEndpoints(instanceName, req.IncludeNodes); err != nil {
+		respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to configure endpoints: %v", err))
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]string{
+		"message": "Endpoints configured successfully",
+	})
+}
+
 // ClusterGetStatus returns cluster status
 func (api *API) ClusterGetStatus(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
@@ -195,6 +228,29 @@ func (api *API) ClusterGetKubeconfig(w http.ResponseWriter, r *http.Request) {
 
 	respondJSON(w, http.StatusOK, map[string]string{
 		"kubeconfig": kubeconfig,
+	})
+}
+
+// ClusterGenerateKubeconfig regenerates the kubeconfig from the cluster
+func (api *API) ClusterGenerateKubeconfig(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	instanceName := vars["name"]
+
+	// Validate instance exists
+	if err := api.instance.ValidateInstance(instanceName); err != nil {
+		respondError(w, http.StatusNotFound, fmt.Sprintf("Instance not found: %v", err))
+		return
+	}
+
+	// Regenerate kubeconfig from cluster
+	clusterMgr := cluster.NewManager(api.dataDir)
+	if err := clusterMgr.RegenerateKubeconfig(instanceName); err != nil {
+		respondError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to generate kubeconfig: %v", err))
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]string{
+		"message": "Kubeconfig regenerated successfully",
 	})
 }
 

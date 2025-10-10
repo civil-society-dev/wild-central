@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/wild-cloud/wild-central/daemon/internal/storage"
+	"github.com/wild-cloud/wild-central/daemon/internal/tools"
 )
 
 // BackupInfo represents metadata about a backup
@@ -55,6 +56,8 @@ func (m *Manager) GetStagingDir(instanceName string) string {
 
 // BackupApp creates a backup of an app's data
 func (m *Manager) BackupApp(instanceName, appName string) (*BackupInfo, error) {
+	kubeconfigPath := tools.GetKubeconfigPath(m.dataDir, instanceName)
+
 	stagingDir := m.GetStagingDir(instanceName)
 	if err := storage.EnsureDir(stagingDir, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create staging directory: %w", err)
@@ -79,7 +82,7 @@ func (m *Manager) BackupApp(instanceName, appName string) (*BackupInfo, error) {
 	}
 
 	// Backup database if app uses one
-	dbFiles, err := m.backupDatabase(appName, backupDir, timestamp)
+	dbFiles, err := m.backupDatabase(kubeconfigPath, appName, backupDir, timestamp)
 	if err != nil {
 		info.Status = "failed"
 		info.Error = fmt.Sprintf("database backup failed: %v", err)
@@ -88,7 +91,7 @@ func (m *Manager) BackupApp(instanceName, appName string) (*BackupInfo, error) {
 	}
 
 	// Backup PVCs
-	pvcFiles, err := m.backupPVCs(appName, backupDir)
+	pvcFiles, err := m.backupPVCs(kubeconfigPath, appName, backupDir)
 	if err != nil && info.Status != "failed" {
 		info.Status = "failed"
 		info.Error = fmt.Sprintf("pvc backup failed: %v", err)
@@ -111,6 +114,8 @@ func (m *Manager) BackupApp(instanceName, appName string) (*BackupInfo, error) {
 
 // RestoreApp restores an app from backup
 func (m *Manager) RestoreApp(instanceName, appName string, opts RestoreOptions) error {
+	kubeconfigPath := tools.GetKubeconfigPath(m.dataDir, instanceName)
+
 	stagingDir := m.GetStagingDir(instanceName)
 	backupDir := filepath.Join(stagingDir, "apps", appName)
 
@@ -121,14 +126,14 @@ func (m *Manager) RestoreApp(instanceName, appName string, opts RestoreOptions) 
 
 	// Restore database if not PVC-only
 	if !opts.PVCOnly {
-		if err := m.restoreDatabase(appName, backupDir, opts.SkipGlobals); err != nil {
+		if err := m.restoreDatabase(kubeconfigPath, appName, backupDir, opts.SkipGlobals); err != nil {
 			return fmt.Errorf("database restore failed: %w", err)
 		}
 	}
 
 	// Restore PVCs if not DB-only
 	if !opts.DBOnly {
-		if err := m.restorePVCs(appName, backupDir); err != nil {
+		if err := m.restorePVCs(kubeconfigPath, appName, backupDir); err != nil {
 			return fmt.Errorf("pvc restore failed: %w", err)
 		}
 	}
@@ -158,31 +163,32 @@ func (m *Manager) ListBackups(instanceName, appName string) ([]*BackupInfo, erro
 }
 
 // backupDatabase backs up PostgreSQL or MySQL database
-func (m *Manager) backupDatabase(appName, backupDir, timestamp string) ([]string, error) {
+func (m *Manager) backupDatabase(kubeconfigPath, appName, backupDir, timestamp string) ([]string, error) {
 	// Detect database type from manifest or deployed pods
-	dbType, err := m.detectDatabaseType(appName)
+	dbType, err := m.detectDatabaseType(kubeconfigPath, appName)
 	if err != nil || dbType == "" {
 		return nil, nil // No database to backup
 	}
 
 	switch dbType {
 	case "postgres":
-		return m.backupPostgres(appName, backupDir, timestamp)
+		return m.backupPostgres(kubeconfigPath, appName, backupDir, timestamp)
 	case "mysql":
-		return m.backupMySQL(appName, backupDir, timestamp)
+		return m.backupMySQL(kubeconfigPath, appName, backupDir, timestamp)
 	default:
 		return nil, nil
 	}
 }
 
 // backupPostgres backs up PostgreSQL database
-func (m *Manager) backupPostgres(appName, backupDir, timestamp string) ([]string, error) {
+func (m *Manager) backupPostgres(kubeconfigPath, appName, backupDir, timestamp string) ([]string, error) {
 	dbDump := filepath.Join(backupDir, fmt.Sprintf("database_%s.dump", timestamp))
 	globalsFile := filepath.Join(backupDir, fmt.Sprintf("globals_%s.sql", timestamp))
 
 	// Database dump
 	cmd := exec.Command("kubectl", "exec", "-n", "postgres", "deploy/postgres-deployment", "--",
 		"bash", "-lc", fmt.Sprintf("pg_dump -U postgres -Fc -Z 9 %s", appName))
+	tools.WithKubeconfig(cmd, kubeconfigPath)
 	output, err := cmd.Output()
 	if err != nil {
 		return nil, fmt.Errorf("pg_dump failed: %w", err)
@@ -194,6 +200,7 @@ func (m *Manager) backupPostgres(appName, backupDir, timestamp string) ([]string
 	// Globals dump
 	cmd = exec.Command("kubectl", "exec", "-n", "postgres", "deploy/postgres-deployment", "--",
 		"bash", "-lc", "pg_dumpall -U postgres -g")
+	tools.WithKubeconfig(cmd, kubeconfigPath)
 	output, err = cmd.Output()
 	if err != nil {
 		return nil, fmt.Errorf("pg_dumpall failed: %w", err)
@@ -206,12 +213,13 @@ func (m *Manager) backupPostgres(appName, backupDir, timestamp string) ([]string
 }
 
 // backupMySQL backs up MySQL database
-func (m *Manager) backupMySQL(appName, backupDir, timestamp string) ([]string, error) {
+func (m *Manager) backupMySQL(kubeconfigPath, appName, backupDir, timestamp string) ([]string, error) {
 	dbDump := filepath.Join(backupDir, fmt.Sprintf("database_%s.sql", timestamp))
 
 	// Get MySQL password from secret
 	cmd := exec.Command("kubectl", "get", "secret", "-n", "mysql", "mysql-secret",
 		"-o", "jsonpath={.data.password}")
+	tools.WithKubeconfig(cmd, kubeconfigPath)
 	passOutput, err := cmd.Output()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get MySQL password: %w", err)
@@ -223,6 +231,7 @@ func (m *Manager) backupMySQL(appName, backupDir, timestamp string) ([]string, e
 	cmd = exec.Command("kubectl", "exec", "-n", "mysql", "deploy/mysql-deployment", "--",
 		"bash", "-c", fmt.Sprintf("mysqldump -uroot -p'%s' --single-transaction --routines --triggers %s",
 			password, appName))
+	tools.WithKubeconfig(cmd, kubeconfigPath)
 	output, err := cmd.Output()
 	if err != nil {
 		return nil, fmt.Errorf("mysqldump failed: %w", err)
@@ -235,11 +244,12 @@ func (m *Manager) backupMySQL(appName, backupDir, timestamp string) ([]string, e
 }
 
 // backupPVCs backs up all PVCs for an app
-func (m *Manager) backupPVCs(appName, backupDir string) ([]string, error) {
+func (m *Manager) backupPVCs(kubeconfigPath, appName, backupDir string) ([]string, error) {
 	// List PVCs for the app
 	cmd := exec.Command("kubectl", "get", "pvc", "-n", appName,
 		"-l", fmt.Sprintf("app=%s", appName),
 		"-o", "jsonpath={.items[*].metadata.name}")
+	tools.WithKubeconfig(cmd, kubeconfigPath)
 	output, err := cmd.Output()
 	if err != nil {
 		return nil, nil // No PVCs found
@@ -261,6 +271,7 @@ func (m *Manager) backupPVCs(appName, backupDir string) ([]string, error) {
 		cmd = exec.Command("kubectl", "get", "pods", "-n", appName,
 			"-l", fmt.Sprintf("app=%s", appName),
 			"-o", "jsonpath={.items[?(@.status.phase==\"Running\")].metadata.name}")
+		tools.WithKubeconfig(cmd, kubeconfigPath)
 		podOutput, err := cmd.Output()
 		if err != nil || len(podOutput) == 0 {
 			continue
@@ -270,6 +281,7 @@ func (m *Manager) backupPVCs(appName, backupDir string) ([]string, error) {
 		// Backup PVC data via tar
 		cmd = exec.Command("kubectl", "exec", "-n", appName, pod, "--",
 			"tar", "-C", "/data", "-cf", "-", ".")
+		tools.WithKubeconfig(cmd, kubeconfigPath)
 		tarData, err := cmd.Output()
 		if err != nil {
 			continue
@@ -287,7 +299,7 @@ func (m *Manager) backupPVCs(appName, backupDir string) ([]string, error) {
 }
 
 // restoreDatabase restores database from backup
-func (m *Manager) restoreDatabase(appName, backupDir string, skipGlobals bool) error {
+func (m *Manager) restoreDatabase(kubeconfigPath, appName, backupDir string, skipGlobals bool) error {
 	// Find database dump files
 	matches, err := filepath.Glob(filepath.Join(backupDir, "database_*.dump"))
 	if err != nil || len(matches) == 0 {
@@ -301,13 +313,13 @@ func (m *Manager) restoreDatabase(appName, backupDir string, skipGlobals bool) e
 	isPostgres := strings.HasSuffix(dumpFile, ".dump")
 
 	if isPostgres {
-		return m.restorePostgres(appName, backupDir, skipGlobals)
+		return m.restorePostgres(kubeconfigPath, appName, backupDir, skipGlobals)
 	}
-	return m.restoreMySQL(appName, dumpFile)
+	return m.restoreMySQL(kubeconfigPath, appName, dumpFile)
 }
 
 // restorePostgres restores PostgreSQL database
-func (m *Manager) restorePostgres(appName, backupDir string, skipGlobals bool) error {
+func (m *Manager) restorePostgres(kubeconfigPath, appName, backupDir string, skipGlobals bool) error {
 	// Find dump files
 	dumps, _ := filepath.Glob(filepath.Join(backupDir, "database_*.dump"))
 	if len(dumps) == 0 {
@@ -318,6 +330,7 @@ func (m *Manager) restorePostgres(appName, backupDir string, skipGlobals bool) e
 	cmd := exec.Command("kubectl", "exec", "-n", "postgres", "deploy/postgres-deployment", "--",
 		"bash", "-lc", fmt.Sprintf("psql -U postgres -d postgres -c \"DROP DATABASE IF EXISTS %s; CREATE DATABASE %s OWNER %s;\"",
 			appName, appName, appName))
+	tools.WithKubeconfig(cmd, kubeconfigPath)
 	if _, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("failed to recreate database: %w", err)
 	}
@@ -330,6 +343,7 @@ func (m *Manager) restorePostgres(appName, backupDir string, skipGlobals bool) e
 
 	cmd = exec.Command("kubectl", "exec", "-i", "-n", "postgres", "deploy/postgres-deployment", "--",
 		"bash", "-lc", fmt.Sprintf("pg_restore -U postgres -d %s", appName))
+	tools.WithKubeconfig(cmd, kubeconfigPath)
 	cmd.Stdin = strings.NewReader(string(dumpData))
 	if _, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("pg_restore failed: %w", err)
@@ -339,10 +353,11 @@ func (m *Manager) restorePostgres(appName, backupDir string, skipGlobals bool) e
 }
 
 // restoreMySQL restores MySQL database
-func (m *Manager) restoreMySQL(appName, dumpFile string) error {
+func (m *Manager) restoreMySQL(kubeconfigPath, appName, dumpFile string) error {
 	// Get MySQL password
 	cmd := exec.Command("kubectl", "get", "secret", "-n", "mysql", "mysql-secret",
 		"-o", "jsonpath={.data.password}")
+	tools.WithKubeconfig(cmd, kubeconfigPath)
 	passOutput, err := cmd.Output()
 	if err != nil {
 		return fmt.Errorf("failed to get MySQL password: %w", err)
@@ -353,6 +368,7 @@ func (m *Manager) restoreMySQL(appName, dumpFile string) error {
 	cmd = exec.Command("kubectl", "exec", "-n", "mysql", "deploy/mysql-deployment", "--",
 		"bash", "-c", fmt.Sprintf("mysql -uroot -p'%s' -e 'DROP DATABASE IF EXISTS %s; CREATE DATABASE %s;'",
 			password, appName, appName))
+	tools.WithKubeconfig(cmd, kubeconfigPath)
 	if _, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("failed to recreate database: %w", err)
 	}
@@ -365,6 +381,7 @@ func (m *Manager) restoreMySQL(appName, dumpFile string) error {
 
 	cmd = exec.Command("kubectl", "exec", "-i", "-n", "mysql", "deploy/mysql-deployment", "--",
 		"bash", "-c", fmt.Sprintf("mysql -uroot -p'%s' %s", password, appName))
+	tools.WithKubeconfig(cmd, kubeconfigPath)
 	cmd.Stdin = strings.NewReader(string(dumpData))
 	if _, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("mysql restore failed: %w", err)
@@ -374,7 +391,7 @@ func (m *Manager) restoreMySQL(appName, dumpFile string) error {
 }
 
 // restorePVCs restores PVC data from backup
-func (m *Manager) restorePVCs(appName, backupDir string) error {
+func (m *Manager) restorePVCs(kubeconfigPath, appName, backupDir string) error {
 	// Find PVC backup directories
 	entries, err := os.ReadDir(backupDir)
 	if err != nil {
@@ -397,6 +414,7 @@ func (m *Manager) restorePVCs(appName, backupDir string) error {
 		// Scale app down
 		cmd := exec.Command("kubectl", "scale", "deployment", "-n", appName,
 			"-l", fmt.Sprintf("app=%s", appName), "--replicas=0")
+		tools.WithKubeconfig(cmd, kubeconfigPath)
 		if _, err := cmd.CombinedOutput(); err != nil {
 			return fmt.Errorf("failed to scale down app: %w", err)
 		}
@@ -414,6 +432,7 @@ func (m *Manager) restorePVCs(appName, backupDir string) error {
 		// Scale app back up
 		cmd = exec.Command("kubectl", "scale", "deployment", "-n", appName,
 			"-l", fmt.Sprintf("app=%s", appName), "--replicas=1")
+		tools.WithKubeconfig(cmd, kubeconfigPath)
 		if _, err := cmd.CombinedOutput(); err != nil {
 			return fmt.Errorf("failed to scale up app: %w", err)
 		}
@@ -425,12 +444,14 @@ func (m *Manager) restorePVCs(appName, backupDir string) error {
 }
 
 // detectDatabaseType detects the database type for an app
-func (m *Manager) detectDatabaseType(appName string) (string, error) {
+func (m *Manager) detectDatabaseType(kubeconfigPath, appName string) (string, error) {
 	// Check for postgres namespace
 	cmd := exec.Command("kubectl", "get", "namespace", "postgres")
+	tools.WithKubeconfig(cmd, kubeconfigPath)
 	if err := cmd.Run(); err == nil {
 		// Check if app uses postgres
 		cmd = exec.Command("kubectl", "get", "pods", "-n", "postgres", "-l", fmt.Sprintf("app=%s", appName))
+		tools.WithKubeconfig(cmd, kubeconfigPath)
 		if output, _ := cmd.Output(); len(output) > 0 {
 			return "postgres", nil
 		}
@@ -438,8 +459,10 @@ func (m *Manager) detectDatabaseType(appName string) (string, error) {
 
 	// Check for mysql namespace
 	cmd = exec.Command("kubectl", "get", "namespace", "mysql")
+	tools.WithKubeconfig(cmd, kubeconfigPath)
 	if err := cmd.Run(); err == nil {
 		cmd = exec.Command("kubectl", "get", "pods", "-n", "mysql", "-l", fmt.Sprintf("app=%s", appName))
+		tools.WithKubeconfig(cmd, kubeconfigPath)
 		if output, _ := cmd.Output(); len(output) > 0 {
 			return "mysql", nil
 		}

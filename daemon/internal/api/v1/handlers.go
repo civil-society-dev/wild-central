@@ -103,9 +103,11 @@ func (api *API) RegisterRoutes(r *mux.Router) {
 	// Phase 3: Cluster operations
 	r.HandleFunc("/api/v1/instances/{name}/cluster/config/generate", api.ClusterGenerateConfig).Methods("POST")
 	r.HandleFunc("/api/v1/instances/{name}/cluster/bootstrap", api.ClusterBootstrap).Methods("POST")
+	r.HandleFunc("/api/v1/instances/{name}/cluster/endpoints", api.ClusterConfigureEndpoints).Methods("POST")
 	r.HandleFunc("/api/v1/instances/{name}/cluster/status", api.ClusterGetStatus).Methods("GET")
 	r.HandleFunc("/api/v1/instances/{name}/cluster/health", api.ClusterHealth).Methods("GET")
 	r.HandleFunc("/api/v1/instances/{name}/cluster/kubeconfig", api.ClusterGetKubeconfig).Methods("GET")
+	r.HandleFunc("/api/v1/instances/{name}/cluster/kubeconfig/generate", api.ClusterGenerateKubeconfig).Methods("POST")
 	r.HandleFunc("/api/v1/instances/{name}/cluster/talosconfig", api.ClusterGetTalosconfig).Methods("GET")
 	r.HandleFunc("/api/v1/instances/{name}/cluster/reset", api.ClusterReset).Methods("POST")
 

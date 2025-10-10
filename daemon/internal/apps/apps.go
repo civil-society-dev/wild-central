@@ -9,6 +9,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/wild-cloud/wild-central/daemon/internal/storage"
+	"github.com/wild-cloud/wild-central/daemon/internal/tools"
 )
 
 // Manager handles application lifecycle operations
@@ -149,6 +150,8 @@ func (m *Manager) Add(instanceName, appName string, config map[string]string) er
 
 // Deploy deploys an app to the cluster
 func (m *Manager) Deploy(instanceName, appName string) error {
+	kubeconfigPath := tools.GetKubeconfigPath(m.dataDir, instanceName)
+
 	// Get app manifests
 	manifestsDir := filepath.Join(m.appsDir, appName, "manifests")
 	if !storage.FileExists(manifestsDir) {
@@ -157,6 +160,7 @@ func (m *Manager) Deploy(instanceName, appName string) error {
 
 	// Apply manifests with kubectl
 	cmd := exec.Command("kubectl", "apply", "-f", manifestsDir)
+	tools.WithKubeconfig(cmd, kubeconfigPath)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("failed to deploy app: %w\nOutput: %s", err, string(output))
@@ -167,6 +171,8 @@ func (m *Manager) Deploy(instanceName, appName string) error {
 
 // Delete removes an app from the cluster
 func (m *Manager) Delete(instanceName, appName string) error {
+	kubeconfigPath := tools.GetKubeconfigPath(m.dataDir, instanceName)
+
 	// Delete manifests with kubectl
 	manifestsDir := filepath.Join(m.appsDir, appName, "manifests")
 	if !storage.FileExists(manifestsDir) {
@@ -174,6 +180,7 @@ func (m *Manager) Delete(instanceName, appName string) error {
 	}
 
 	cmd := exec.Command("kubectl", "delete", "-f", manifestsDir)
+	tools.WithKubeconfig(cmd, kubeconfigPath)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("failed to delete app: %w\nOutput: %s", err, string(output))

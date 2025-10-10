@@ -225,6 +225,8 @@ func (m *Manager) InstallAll(instanceName string, fetch, deploy bool, opID strin
 
 // Delete removes a service
 func (m *Manager) Delete(instanceName, serviceName string) error {
+	kubeconfigPath := tools.GetKubeconfigPath(m.dataDir, instanceName)
+
 	serviceDir := filepath.Join(m.servicesDir, serviceName)
 	manifestsFile := filepath.Join(serviceDir, "manifests.yaml")
 
@@ -233,6 +235,7 @@ func (m *Manager) Delete(instanceName, serviceName string) error {
 	}
 
 	cmd := exec.Command("kubectl", "delete", "-f", manifestsFile)
+	tools.WithKubeconfig(cmd, kubeconfigPath)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("failed to delete service: %w\nOutput: %s", err, string(output))

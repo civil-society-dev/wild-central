@@ -2,10 +2,12 @@ package cluster
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/wild-cloud/wild-central/daemon/internal/storage"
 	"github.com/wild-cloud/wild-central/daemon/internal/tools"
@@ -34,13 +36,13 @@ type ClusterConfig struct {
 
 // ClusterStatus represents cluster health and status
 type ClusterStatus struct {
-	Status             string            `json:"status"` // ready, pending, error
-	Nodes              int               `json:"nodes"`
-	ControlPlaneNodes  int               `json:"control_plane_nodes"`
-	WorkerNodes        int               `json:"worker_nodes"`
-	KubernetesVersion  string            `json:"kubernetes_version"`
-	TalosVersion       string            `json:"talos_version"`
-	Services           map[string]string `json:"services"`
+	Status            string            `json:"status"` // ready, pending, error
+	Nodes             int               `json:"nodes"`
+	ControlPlaneNodes int               `json:"control_plane_nodes"`
+	WorkerNodes       int               `json:"worker_nodes"`
+	KubernetesVersion string            `json:"kubernetes_version"`
+	TalosVersion      string            `json:"talos_version"`
+	Services          map[string]string `json:"services"`
 }
 
 // GetTalosDir returns the talos directory for an instance
@@ -112,17 +114,145 @@ func (m *Manager) Bootstrap(instanceName, nodeName string) error {
 		return fmt.Errorf("node %s does not have a target IP configured", nodeName)
 	}
 
-	// Set talosctl endpoint (like v.PoC does: talosctl config endpoint "$TARGET_IP")
+	// Get talosconfig path for this instance
+	talosconfigPath := tools.GetTalosconfigPath(m.dataDir, instanceName)
+
+	// Set talosctl endpoint (with proper context via TALOSCONFIG env var)
 	cmdEndpoint := exec.Command("talosctl", "config", "endpoint", nodeIP)
+	tools.WithTalosconfig(cmdEndpoint, talosconfigPath)
 	if output, err := cmdEndpoint.CombinedOutput(); err != nil {
 		return fmt.Errorf("failed to set talosctl endpoint: %w\nOutput: %s", err, string(output))
 	}
 
-	// Bootstrap command (like v.PoC does: talosctl bootstrap --nodes "$TARGET_IP")
+	// Bootstrap command (with proper context via TALOSCONFIG env var)
 	cmd := exec.Command("talosctl", "bootstrap", "--nodes", nodeIP)
+	tools.WithTalosconfig(cmd, talosconfigPath)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("failed to bootstrap cluster: %w\nOutput: %s", err, string(output))
+	}
+
+	// Retrieve kubeconfig after bootstrap (best-effort with retry)
+	log.Printf("Waiting for Kubernetes API server to become ready...")
+	if err := m.retrieveKubeconfigFromCluster(instanceName, nodeIP, 5*time.Minute); err != nil {
+		log.Printf("Warning: %v", err)
+		log.Printf("You can retrieve it manually later using: wild cluster kubeconfig --generate")
+	}
+
+	return nil
+}
+
+// retrieveKubeconfigFromCluster retrieves kubeconfig from the cluster with retry logic
+func (m *Manager) retrieveKubeconfigFromCluster(instanceName, nodeIP string, timeout time.Duration) error {
+	kubeconfigPath := tools.GetKubeconfigPath(m.dataDir, instanceName)
+	talosconfigPath := tools.GetTalosconfigPath(m.dataDir, instanceName)
+
+	// Retry logic: exponential backoff
+	delay := 5 * time.Second
+	maxDelay := 30 * time.Second
+	deadline := time.Now().Add(timeout)
+
+	for time.Now().Before(deadline) {
+		// Try to retrieve kubeconfig
+		cmdKubeconfig := exec.Command("talosctl", "kubeconfig", "--nodes", nodeIP, kubeconfigPath)
+		tools.WithTalosconfig(cmdKubeconfig, talosconfigPath)
+
+		if output, err := cmdKubeconfig.CombinedOutput(); err == nil {
+			log.Printf("Successfully retrieved kubeconfig for instance %s", instanceName)
+			return nil
+		} else {
+			// Check if we've exceeded deadline
+			if !time.Now().Before(deadline) {
+				return fmt.Errorf("failed to retrieve kubeconfig: %v\nOutput: %s", err, string(output))
+			}
+
+			// Wait before retrying
+			time.Sleep(delay)
+
+			// Increase delay for next iteration (exponential backoff)
+			delay *= 2
+			if delay > maxDelay {
+				delay = maxDelay
+			}
+		}
+	}
+
+	return fmt.Errorf("failed to retrieve kubeconfig: timeout exceeded")
+}
+
+// RegenerateKubeconfig regenerates the kubeconfig by retrieving it from the cluster
+func (m *Manager) RegenerateKubeconfig(instanceName string) error {
+	instancePath := filepath.Join(m.dataDir, "instances", instanceName)
+	configPath := filepath.Join(instancePath, "config.yaml")
+
+	yq := tools.NewYQ()
+
+	// Get VIP from config
+	vipRaw, err := yq.Get(configPath, ".cluster.nodes.control.vip")
+	if err != nil {
+		return fmt.Errorf("failed to get VIP: %w", err)
+	}
+
+	vip := tools.CleanYQOutput(vipRaw)
+	if vip == "" || vip == "null" {
+		return fmt.Errorf("control plane VIP not configured in cluster.nodes.control.vip")
+	}
+
+	log.Printf("Regenerating kubeconfig for instance %s from cluster VIP %s", instanceName, vip)
+	// Use shorter timeout for manual regeneration (cluster should already be running)
+	return m.retrieveKubeconfigFromCluster(instanceName, vip, 30*time.Second)
+}
+
+// ConfigureEndpoints updates talosconfig to use VIP and retrieves kubeconfig
+func (m *Manager) ConfigureEndpoints(instanceName string, includeNodes bool) error {
+	instancePath := filepath.Join(m.dataDir, "instances", instanceName)
+	configPath := filepath.Join(instancePath, "config.yaml")
+	talosconfigPath := tools.GetTalosconfigPath(m.dataDir, instanceName)
+
+	yq := tools.NewYQ()
+
+	// Get VIP from config
+	vipRaw, err := yq.Get(configPath, ".cluster.nodes.control.vip")
+	if err != nil {
+		return fmt.Errorf("failed to get VIP: %w", err)
+	}
+
+	vip := tools.CleanYQOutput(vipRaw)
+	if vip == "" || vip == "null" {
+		return fmt.Errorf("control plane VIP not configured in cluster.nodes.control.vip")
+	}
+
+	// Build endpoints list
+	endpoints := []string{vip}
+
+	// Add control node IPs if requested
+	if includeNodes {
+		nodesRaw, err := yq.Exec("eval", ".cluster.nodes.active | to_entries | .[] | select(.value.role == \"controlplane\") | .value.targetIp", configPath)
+		if err == nil {
+			nodeIPs := strings.Split(strings.TrimSpace(string(nodesRaw)), "\n")
+			for _, ip := range nodeIPs {
+				ip = tools.CleanYQOutput(ip)
+				if ip != "" && ip != "null" && ip != vip {
+					endpoints = append(endpoints, ip)
+				}
+			}
+		}
+	}
+
+	// Update talosconfig endpoint to use VIP
+	args := append([]string{"config", "endpoint"}, endpoints...)
+	cmd := exec.Command("talosctl", args...)
+	tools.WithTalosconfig(cmd, talosconfigPath)
+	if output, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("failed to set talosctl endpoint: %w\nOutput: %s", err, string(output))
+	}
+
+	// Retrieve kubeconfig using the VIP
+	kubeconfigPath := tools.GetKubeconfigPath(m.dataDir, instanceName)
+	cmdKubeconfig := exec.Command("talosctl", "kubeconfig", "--nodes", vip, kubeconfigPath)
+	tools.WithTalosconfig(cmdKubeconfig, talosconfigPath)
+	if output, err := cmdKubeconfig.CombinedOutput(); err != nil {
+		return fmt.Errorf("failed to retrieve kubeconfig: %w\nOutput: %s", err, string(output))
 	}
 
 	return nil
@@ -150,7 +280,7 @@ func (m *Manager) GetStatus(instanceName string) (*ClusterStatus, error) {
 
 // GetKubeconfig returns the kubeconfig for the cluster
 func (m *Manager) GetKubeconfig(instanceName string) (string, error) {
-	kubeconfigPath := filepath.Join(m.GetGeneratedDir(instanceName), "kubeconfig")
+	kubeconfigPath := tools.GetKubeconfigPath(m.dataDir, instanceName)
 
 	if !storage.FileExists(kubeconfigPath) {
 		return "", fmt.Errorf("kubeconfig not found - cluster may not be bootstrapped")

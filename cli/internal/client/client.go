@@ -27,7 +27,6 @@ func NewClient(baseURL string) *Client {
 }
 
 // APIResponse is the API response format
-// The daemon returns responses directly without wrapping in a "data" field
 type APIResponse struct {
 	Data  map[string]interface{}
 	Error string `json:"error,omitempty"`

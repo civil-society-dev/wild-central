@@ -52,10 +52,10 @@ wild secret generate <key>        # Generate random secret
 ```
 wild node discover                # Discover nodes on network
 wild node list                    # List configured nodes
-wild node add <mac> <hostname> <role>  # Add node
-wild node setup <mac>             # Setup Talos on node
-wild node delete <mac>            # Remove node
-wild node show <mac>              # Show node details
+wild node add <hostname> <role>   # Add node
+wild node setup <hostname>        # Setup Talos on node
+wild node delete <hostname>       # Remove node
+wild node show <hostname>         # Show node details
 ```
 
 ### PXE Assets
@@ -140,9 +140,8 @@ contexts:
 
 ### Environment Variables
 ```
-WILD_CONTEXT       # Override current context
 WILD_DAEMON_URL    # Override daemon URL
-WILD_INSTANCE      # Override instance name
+WILD_CLI_DATA      # Override data directory (default: ~/.wildcloud)
 ```
 
 ## Command Mapping from v.PoC

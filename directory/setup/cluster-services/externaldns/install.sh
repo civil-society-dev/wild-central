@@ -2,59 +2,78 @@
 set -e
 set -o pipefail
 
-# Initialize Wild Cloud environment
-if [ -z "${WC_ROOT}" ]; then
-    print "WC_ROOT is not set."
+# Ensure WILD_INSTANCE is set
+if [ -z "${WILD_INSTANCE}" ]; then
+    echo "❌ ERROR: WILD_INSTANCE is not set"
     exit 1
-else
-    source "${WC_ROOT}/scripts/common.sh"
-    init_wild_env
 fi
 
-CLUSTER_SETUP_DIR="${WC_HOME}/setup/cluster-services"
+# Ensure WILD_CENTRAL_DATA is set
+if [ -z "${WILD_CENTRAL_DATA}" ]; then
+    echo "❌ ERROR: WILD_CENTRAL_DATA is not set"
+    exit 1
+fi
+
+# Ensure KUBECONFIG is set
+if [ -z "${KUBECONFIG}" ]; then
+    echo "❌ ERROR: KUBECONFIG is not set"
+    exit 1
+fi
+
+INSTANCE_DIR="${WILD_CENTRAL_DATA}/instances/${WILD_INSTANCE}"
+CLUSTER_SETUP_DIR="${INSTANCE_DIR}/setup/cluster-services"
 EXTERNALDNS_DIR="${CLUSTER_SETUP_DIR}/externaldns"
 
-print_header "Setting up ExternalDNS"
+echo "🌐 === Setting up ExternalDNS ==="
+echo ""
 
 # Check cert-manager dependency
-print_info "Verifying cert-manager is ready (required for ExternalDNS)..."
+echo "🔍 Verifying cert-manager is ready (required for ExternalDNS)..."
 kubectl wait --for=condition=Available deployment/cert-manager -n cert-manager --timeout=60s 2>/dev/null && \
 kubectl wait --for=condition=Available deployment/cert-manager-webhook -n cert-manager --timeout=60s 2>/dev/null || {
-    print_warning "cert-manager not ready, but continuing with ExternalDNS installation"
-    print_info "Note: ExternalDNS may not work properly without cert-manager"
+    echo "⚠️  cert-manager not ready, but continuing with ExternalDNS installation"
+    echo "💡 Note: ExternalDNS may not work properly without cert-manager"
 }
 
-# Templates should already be compiled by wild-cluster-services-generate
-echo "Using pre-compiled ExternalDNS templates..."
+# Templates should already be compiled
+echo "📦 Using pre-compiled ExternalDNS templates..."
 if [ ! -d "${EXTERNALDNS_DIR}/kustomize" ]; then
-    echo "Error: Compiled templates not found. Run 'wild-cluster-services-generate' first."
+    echo "❌ ERROR: Compiled templates not found at ${EXTERNALDNS_DIR}/kustomize"
+    echo "Templates should be compiled before deployment."
     exit 1
 fi
 
-echo "Setting up ExternalDNS..."
-
 # Apply ExternalDNS manifests using kustomize
-echo "Deploying ExternalDNS..."
+echo "🚀 Deploying ExternalDNS..."
 kubectl apply -k ${EXTERNALDNS_DIR}/kustomize
 
 # Setup Cloudflare API token secret
-echo "Creating Cloudflare API token secret..."
-CLOUDFLARE_API_TOKEN=$(wild-secret cloudflare.token) || exit 1
+echo "🔐 Creating Cloudflare API token secret..."
+SECRETS_FILE="${WILD_CENTRAL_DATA}/instances/${WILD_INSTANCE}/secrets.yaml"
+CLOUDFLARE_API_TOKEN=$(yq '.cloudflare.token' "$SECRETS_FILE" 2>/dev/null | tr -d '"')
+
+if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ "$CLOUDFLARE_API_TOKEN" = "null" ]; then
+    echo "❌ ERROR: Cloudflare API token not found."
+    echo "💡 Please set: wild secret set cloudflare.token YOUR_TOKEN"
+    exit 1
+fi
 kubectl create secret generic cloudflare-api-token \
   --namespace externaldns \
   --from-literal=api-token="${CLOUDFLARE_API_TOKEN}" \
   --dry-run=client -o yaml | kubectl apply -f -
 
 # Wait for ExternalDNS to be ready
-echo "Waiting for Cloudflare ExternalDNS to be ready..."
+echo "⏳ Waiting for Cloudflare ExternalDNS to be ready..."
 kubectl rollout status deployment/external-dns -n externaldns --timeout=60s
 
-# echo "Waiting for CoreDNS ExternalDNS to be ready..."
+# echo "⏳ Waiting for CoreDNS ExternalDNS to be ready..."
 # kubectl rollout status deployment/external-dns-coredns -n externaldns --timeout=60s
 
-echo "ExternalDNS setup complete!"
 echo ""
-echo "To verify the installation:"
+echo "✅ ExternalDNS installed successfully"
+echo ""
+echo "💡 To verify the installation:"
 echo "  kubectl get pods -n externaldns"
 echo "  kubectl logs -n externaldns -l app=external-dns -f"
 echo "  kubectl logs -n externaldns -l app=external-dns-coredns -f"
+echo ""

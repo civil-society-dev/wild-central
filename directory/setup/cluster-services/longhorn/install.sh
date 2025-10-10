@@ -2,28 +2,51 @@
 set -e
 set -o pipefail
 
-# Initialize Wild Cloud environment
-if [ -z "${WC_ROOT}" ]; then
-    print "WC_ROOT is not set."
+# Ensure WILD_INSTANCE is set
+if [ -z "${WILD_INSTANCE}" ]; then
+    echo "❌ ERROR: WILD_INSTANCE is not set"
     exit 1
-else
-    source "${WC_ROOT}/scripts/common.sh"
-    init_wild_env
 fi
 
-CLUSTER_SETUP_DIR="${WC_HOME}/setup/cluster-services"
+# Ensure WILD_CENTRAL_DATA is set
+if [ -z "${WILD_CENTRAL_DATA}" ]; then
+    echo "❌ ERROR: WILD_CENTRAL_DATA is not set"
+    exit 1
+fi
+
+# Ensure KUBECONFIG is set
+if [ -z "${KUBECONFIG}" ]; then
+    echo "❌ ERROR: KUBECONFIG is not set"
+    exit 1
+fi
+
+INSTANCE_DIR="${WILD_CENTRAL_DATA}/instances/${WILD_INSTANCE}"
+CLUSTER_SETUP_DIR="${INSTANCE_DIR}/setup/cluster-services"
 LONGHORN_DIR="${CLUSTER_SETUP_DIR}/longhorn"
 
-echo "Setting up Longhorn..."
+echo "🔧 === Setting up Longhorn ==="
+echo ""
 
-# Templates should already be compiled by wild-cluster-services-generate
-echo "Using pre-compiled Longhorn templates..."
+# Templates should already be compiled
+echo "📦 Using pre-compiled Longhorn templates..."
 if [ ! -d "${LONGHORN_DIR}/kustomize" ]; then
-    echo "Error: Compiled templates not found. Run 'wild-cluster-services-generate' first."
+    echo "❌ ERROR: Compiled templates not found at ${LONGHORN_DIR}/kustomize"
+    echo "Templates should be compiled before deployment."
     exit 1
 fi
 
-# Apply Longhorn with kustomize to apply our customizations
+echo "🚀 Deploying Longhorn..."
 kubectl apply -k ${LONGHORN_DIR}/kustomize/
 
-echo "Longhorn setup complete!"
+echo "⏳ Waiting for Longhorn to be ready..."
+kubectl wait --for=condition=available --timeout=300s deployment/longhorn-driver-deployer -n longhorn-system || true
+
+echo ""
+echo "✅ Longhorn installed successfully"
+echo ""
+echo "💡 To verify the installation:"
+echo "  kubectl get pods -n longhorn-system"
+echo "  kubectl get storageclass"
+echo ""
+echo "🌐 To access the Longhorn UI:"
+echo "  kubectl port-forward -n longhorn-system svc/longhorn-frontend 8080:80"

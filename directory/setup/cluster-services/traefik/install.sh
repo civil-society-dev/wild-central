@@ -2,58 +2,71 @@
 set -e
 set -o pipefail
 
-# Initialize Wild Cloud environment
-if [ -z "${WC_ROOT}" ]; then
-    print "WC_ROOT is not set."
+# Ensure WILD_INSTANCE is set
+if [ -z "${WILD_INSTANCE}" ]; then
+    echo "❌ ERROR: WILD_INSTANCE is not set"
     exit 1
-else
-    source "${WC_ROOT}/scripts/common.sh"
-    init_wild_env
 fi
 
-CLUSTER_SETUP_DIR="${WC_HOME}/setup/cluster-services"
+# Ensure WILD_CENTRAL_DATA is set
+if [ -z "${WILD_CENTRAL_DATA}" ]; then
+    echo "❌ ERROR: WILD_CENTRAL_DATA is not set"
+    exit 1
+fi
+
+# Ensure KUBECONFIG is set
+if [ -z "${KUBECONFIG}" ]; then
+    echo "❌ ERROR: KUBECONFIG is not set"
+    exit 1
+fi
+
+INSTANCE_DIR="${WILD_CENTRAL_DATA}/instances/${WILD_INSTANCE}"
+CLUSTER_SETUP_DIR="${INSTANCE_DIR}/setup/cluster-services"
 TRAEFIK_DIR="${CLUSTER_SETUP_DIR}/traefik"
 
-print_header "Setting up Traefik ingress controller"
+echo "🌐 === Setting up Traefik Ingress Controller ==="
+echo ""
 
 # Check MetalLB dependency
-print_info "Verifying MetalLB is ready (required for Traefik LoadBalancer service)..."
+echo "🔍 Verifying MetalLB is ready (required for Traefik LoadBalancer service)..."
 kubectl wait --for=condition=Ready pod -l component=controller -n metallb-system --timeout=60s 2>/dev/null || {
-    print_warning "MetalLB controller not ready, but continuing with Traefik installation"
-    print_info "Note: Traefik LoadBalancer service may not get external IP without MetalLB"
+    echo "⚠️  MetalLB controller not ready, but continuing with Traefik installation"
+    echo "💡 Note: Traefik LoadBalancer service may not get external IP without MetalLB"
 }
 
 # Install required CRDs first
-echo "Installing Gateway API CRDs..."
+echo "📦 Installing Gateway API CRDs..."
 kubectl apply -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.0.0/standard-install.yaml
 
-echo "Installing Traefik CRDs..."
+echo "📦 Installing Traefik CRDs..."
 kubectl apply -f https://raw.githubusercontent.com/traefik/traefik/v3.4/docs/content/reference/dynamic-configuration/kubernetes-crd-definition-v1.yml
 
-echo "Waiting for CRDs to be established..."
+echo "⏳ Waiting for CRDs to be established..."
 kubectl wait --for condition=established crd/gateways.gateway.networking.k8s.io --timeout=60s
 kubectl wait --for condition=established crd/gatewayclasses.gateway.networking.k8s.io --timeout=60s
 kubectl wait --for condition=established crd/ingressroutes.traefik.io --timeout=60s
 kubectl wait --for condition=established crd/middlewares.traefik.io --timeout=60s
 
-# Templates should already be compiled by wild-cluster-services-generate
-echo "Using pre-compiled Traefik templates..."
+# Templates should already be compiled
+echo "📦 Using pre-compiled Traefik templates..."
 if [ ! -d "${TRAEFIK_DIR}/kustomize" ]; then
-    echo "Error: Compiled templates not found. Run 'wild-cluster-services-generate' first."
+    echo "❌ ERROR: Compiled templates not found at ${TRAEFIK_DIR}/kustomize"
+    echo "Templates should be compiled before deployment."
     exit 1
 fi
 
 # Apply Traefik using kustomize
-echo "Deploying Traefik..."
+echo "🚀 Deploying Traefik..."
 kubectl apply -k ${TRAEFIK_DIR}/kustomize
 
 # Wait for Traefik to be ready
-echo "Waiting for Traefik to be ready..."
+echo "⏳ Waiting for Traefik to be ready..."
 kubectl wait --for=condition=Available deployment/traefik -n traefik --timeout=120s
 
-
-echo "✅ Traefik setup complete!"
 echo ""
-echo "To verify the installation:"
+echo "✅ Traefik installed successfully"
+echo ""
+echo "💡 To verify the installation:"
 echo "  kubectl get pods -n traefik"
 echo "  kubectl get svc -n traefik"
+echo ""

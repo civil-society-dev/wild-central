@@ -2,39 +2,55 @@
 set -e
 set -o pipefail
 
-# Initialize Wild Cloud environment
-if [ -z "${WC_ROOT}" ]; then
-    print "WC_ROOT is not set."
+# Ensure WILD_INSTANCE is set
+if [ -z "${WILD_INSTANCE}" ]; then
+    echo "❌ ERROR: WILD_INSTANCE is not set"
     exit 1
-else
-    source "${WC_ROOT}/scripts/common.sh"
-    init_wild_env
 fi
 
-CLUSTER_SETUP_DIR="${WC_HOME}/setup/cluster-services"
+# Ensure WILD_CENTRAL_DATA is set
+if [ -z "${WILD_CENTRAL_DATA}" ]; then
+    echo "❌ ERROR: WILD_CENTRAL_DATA is not set"
+    exit 1
+fi
+
+# Ensure KUBECONFIG is set
+if [ -z "${KUBECONFIG}" ]; then
+    echo "❌ ERROR: KUBECONFIG is not set"
+    exit 1
+fi
+
+INSTANCE_DIR="${WILD_CENTRAL_DATA}/instances/${WILD_INSTANCE}"
+CLUSTER_SETUP_DIR="${INSTANCE_DIR}/setup/cluster-services"
 METALLB_DIR="${CLUSTER_SETUP_DIR}/metallb"
 
-print_header "Setting up MetalLB"
+echo "🔧 === Setting up MetalLB ==="
+echo ""
 
-# Templates should already be compiled by wild-cluster-services-generate
-echo "Using pre-compiled MetalLB templates..."
+# Templates should already be compiled
+echo "📦 Using pre-compiled MetalLB templates..."
 if [ ! -d "${METALLB_DIR}/kustomize" ]; then
-    echo "Error: Compiled templates not found. Run 'wild-cluster-services-generate' first."
+    echo "❌ ERROR: Compiled templates not found at ${METALLB_DIR}/kustomize"
+    echo "Templates should be compiled before deployment."
     exit 1
 fi
 
-echo "Deploying MetalLB..."
+echo "🚀 Deploying MetalLB installation..."
 kubectl apply -k ${METALLB_DIR}/kustomize/installation
 
-echo "Waiting for MetalLB to be deployed..."
+echo "⏳ Waiting for MetalLB controller to be ready..."
 kubectl wait --for=condition=Available deployment/controller -n metallb-system --timeout=60s
-sleep 10 # Extra buffer for webhook initialization
+echo "⏳ Extra buffer for webhook initialization..."
+sleep 10
 
-echo "Customizing MetalLB..."
+echo "⚙️  Applying MetalLB configuration..."
 kubectl apply -k ${METALLB_DIR}/kustomize/configuration
 
-echo "✅ MetalLB installed and configured"
 echo ""
-echo "To verify the installation:"
+echo "✅ MetalLB installed and configured successfully"
+echo ""
+echo "💡 To verify the installation:"
 echo "  kubectl get pods -n metallb-system"
 echo "  kubectl get ipaddresspools.metallb.io -n metallb-system"
+echo ""
+echo "🌐 MetalLB will now provide LoadBalancer IPs for your services"

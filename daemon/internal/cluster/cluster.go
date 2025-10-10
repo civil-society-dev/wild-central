@@ -1,6 +1,7 @@
 package cluster
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -260,9 +261,6 @@ func (m *Manager) ConfigureEndpoints(instanceName string, includeNodes bool) err
 
 // GetStatus retrieves cluster status
 func (m *Manager) GetStatus(instanceName string) (*ClusterStatus, error) {
-	// This is a simplified version
-	// Real implementation would query talosctl and kubectl for actual status
-
 	status := &ClusterStatus{
 		Status:            "unknown",
 		Nodes:             0,
@@ -271,9 +269,121 @@ func (m *Manager) GetStatus(instanceName string) (*ClusterStatus, error) {
 		Services:          make(map[string]string),
 	}
 
-	// Try to get cluster info
-	// This requires talosconfig and kubeconfig to be set up
-	// For now, return basic status
+	kubeconfigPath := tools.GetKubeconfigPath(m.dataDir, instanceName)
+	if !storage.FileExists(kubeconfigPath) {
+		status.Status = "not_bootstrapped"
+		return status, nil
+	}
+
+	// Get node count and types using kubectl
+	cmd := exec.Command("kubectl", "--kubeconfig", kubeconfigPath, "get", "nodes", "-o", "json")
+	output, err := cmd.Output()
+	if err != nil {
+		status.Status = "unreachable"
+		return status, nil
+	}
+
+	var nodesResult struct {
+		Items []struct {
+			Metadata struct {
+				Labels map[string]string `json:"labels"`
+			} `json:"metadata"`
+			Status struct {
+				Conditions []struct {
+					Type   string `json:"type"`
+					Status string `json:"status"`
+				} `json:"conditions"`
+				NodeInfo struct {
+					KubeletVersion string `json:"kubeletVersion"`
+				} `json:"nodeInfo"`
+			} `json:"status"`
+		} `json:"items"`
+	}
+
+	if err := json.Unmarshal(output, &nodesResult); err != nil {
+		return status, fmt.Errorf("failed to parse nodes: %w", err)
+	}
+
+	status.Nodes = len(nodesResult.Items)
+	status.Status = "ready"
+
+	// Get Kubernetes version from first node
+	if len(nodesResult.Items) > 0 {
+		status.KubernetesVersion = nodesResult.Items[0].Status.NodeInfo.KubeletVersion
+	}
+
+	// Get Talos version using talosctl
+	talosconfigPath := tools.GetTalosconfigPath(m.dataDir, instanceName)
+	if storage.FileExists(talosconfigPath) {
+		cmd := exec.Command("talosctl", "version", "--short", "--client")
+		tools.WithTalosconfig(cmd, talosconfigPath)
+		output, err := cmd.Output()
+		if err == nil {
+			// Output format: "Talos v1.11.2"
+			line := strings.TrimSpace(string(output))
+			if strings.HasPrefix(line, "Talos") {
+				parts := strings.Fields(line)
+				if len(parts) >= 2 {
+					status.TalosVersion = parts[1]
+				}
+			}
+		}
+	}
+
+	// Count control plane and worker nodes
+	for _, node := range nodesResult.Items {
+		if _, isControl := node.Metadata.Labels["node-role.kubernetes.io/control-plane"]; isControl {
+			status.ControlPlaneNodes++
+		} else {
+			status.WorkerNodes++
+		}
+
+		// Check if node is ready
+		for _, cond := range node.Status.Conditions {
+			if cond.Type == "Ready" && cond.Status != "True" {
+				status.Status = "degraded"
+			}
+		}
+	}
+
+	// Check basic service status
+	services := []struct {
+		name      string
+		namespace string
+		selector  string
+	}{
+		{"metallb", "metallb-system", "app=metallb"},
+		{"traefik", "traefik", "app.kubernetes.io/name=traefik"},
+		{"cert-manager", "cert-manager", "app.kubernetes.io/instance=cert-manager"},
+		{"longhorn", "longhorn-system", "app=longhorn-manager"},
+	}
+
+	for _, svc := range services {
+		cmd := exec.Command("kubectl", "--kubeconfig", kubeconfigPath,
+			"get", "pods", "-n", svc.namespace, "-l", svc.selector,
+			"-o", "jsonpath={.items[*].status.phase}")
+		output, err := cmd.Output()
+		if err != nil || len(output) == 0 {
+			status.Services[svc.name] = "not_found"
+			continue
+		}
+
+		phases := strings.Fields(string(output))
+		allRunning := true
+		for _, phase := range phases {
+			if phase != "Running" {
+				allRunning = false
+				break
+			}
+		}
+
+		if allRunning && len(phases) > 0 {
+			status.Services[svc.name] = "running"
+		} else {
+			status.Services[svc.name] = "not_ready"
+			status.Status = "degraded"
+		}
+	}
 
 	return status, nil
 }

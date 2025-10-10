@@ -143,6 +143,7 @@ func (api *API) RegisterRoutes(r *mux.Router) {
 
 	// Phase 5: Utilities
 	r.HandleFunc("/api/v1/utilities/health", api.UtilitiesHealth).Methods("GET")
+	r.HandleFunc("/api/v1/instances/{name}/utilities/health", api.InstanceUtilitiesHealth).Methods("GET")
 	r.HandleFunc("/api/v1/utilities/dashboard/token", api.UtilitiesDashboardToken).Methods("GET")
 	r.HandleFunc("/api/v1/utilities/nodes/ips", api.UtilitiesNodeIPs).Methods("GET")
 	r.HandleFunc("/api/v1/utilities/controlplane/ip", api.UtilitiesControlPlaneIP).Methods("GET")

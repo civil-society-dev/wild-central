@@ -59,15 +59,6 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# Initialize Wild Cloud environment
-if [ -z "${WC_ROOT}" ]; then
-    print "WC_ROOT is not set."
-    exit 1
-else
-    source "${WC_ROOT}/scripts/common.sh"
-    init_wild_env
-fi
-
 echo "Setting up NFS server on this host..."
 
 # Check if required NFS variables are configured

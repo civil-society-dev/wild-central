@@ -2,15 +2,43 @@ package v1
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"path/filepath"
 
 	"github.com/gorilla/mux"
 	"github.com/wild-cloud/wild-central/daemon/internal/utilities"
 )
 
-// UtilitiesHealth returns cluster health status
+// UtilitiesHealth returns cluster health status (legacy, no instance context)
 func (api *API) UtilitiesHealth(w http.ResponseWriter, r *http.Request) {
-	status, err := utilities.GetClusterHealth()
+	status, err := utilities.GetClusterHealth("")
+	if err != nil {
+		respondError(w, http.StatusInternalServerError, "Failed to get cluster health")
+		return
+	}
+
+	respondJSON(w, http.StatusOK, map[string]interface{}{
+		"success": true,
+		"data":    status,
+	})
+}
+
+// InstanceUtilitiesHealth returns cluster health status for a specific instance
+func (api *API) InstanceUtilitiesHealth(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	instanceName := vars["name"]
+
+	// Validate instance exists
+	if err := api.instance.ValidateInstance(instanceName); err != nil {
+		respondError(w, http.StatusNotFound, fmt.Sprintf("Instance not found: %v", err))
+		return
+	}
+
+	// Get kubeconfig path for this instance
+	kubeconfigPath := filepath.Join(api.dataDir, "instances", instanceName, "kubeconfig")
+
+	status, err := utilities.GetClusterHealth(kubeconfigPath)
 	if err != nil {
 		respondError(w, http.StatusInternalServerError, "Failed to get cluster health")
 		return

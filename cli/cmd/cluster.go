@@ -66,7 +66,7 @@ var clusterStatusCmd = &cobra.Command{
 			return printJSON(resp.Data)
 		}
 
-		return printYAML(resp.GetMap("status"))
+		return printYAML(resp.Data)
 	},
 }
 
